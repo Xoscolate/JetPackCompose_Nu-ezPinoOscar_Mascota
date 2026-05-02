@@ -22,5 +22,5 @@ sealed class AppScreens (val route: String ){
     data object MascotaCrear : AppScreens("mascota_crear") // Pantalla para crear al demonio
     data object MascotaJoc : AppScreens("mascota_joc")     // Pantalla de "juego" donde sale el demonio
     data object MascotaMort : AppScreens("mascota_mort")   // Pantalla de RIP
-
+    object MascotaDormir: AppScreens("mascota_dormir")
 }

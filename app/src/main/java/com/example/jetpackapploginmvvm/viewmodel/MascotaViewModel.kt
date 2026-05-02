@@ -1,67 +1,157 @@
 package com.example.jetpackapploginmvvm.viewmodel
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import android.media.MediaPlayer
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.jetpackapploginmvvm.R
 import com.example.jetpackapploginmvvm.model.Mascota
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
-class MascotaViewModel : ViewModel() {
+class MascotaViewModel(application: Application) : AndroidViewModel(application) {
 
+    // Configuración de tiempos
+    private val TIEMPO_HAMBRE = 60 * 1000L // 1 minuto para morir (ajustar luego)
+    private val TIEMPO_RECUPERACION_SUENO = 10 * 60 * 1000L // 10 minutos para 0% -> 100%
 
+    private var mediaPlayer: MediaPlayer? = null
 
-//Esto es 60 segundos en total, es ajustable pero para las pruebas utilize 60 segundos
-    private val TIEMPO_LIMITE = 1 * 60 * 1000L
+    private val _mascota = MutableStateFlow<Mascota?>(null)
+    val mascota = _mascota.asStateFlow()
 
-   //Esto del mutable state es lo que explicaste de que de que si un valor cambia reedibujo la pantalla sin hacer peticion
-    var mascota by mutableStateOf<Mascota?>(null)
-        private set
+    private val _estaComiendo = MutableStateFlow(false)
+    val estaComiendo = _estaComiendo.asStateFlow()
 
-    var estaComiendo by mutableStateOf(false)
-        private set
+    // Flujos para las barras de la UI
+    private val _nivelHambre = MutableStateFlow(1f)
+    val nivelHambre = _nivelHambre.asStateFlow()
 
-    // Funcion de crear la mascota
+    private val _nivelSueno = MutableStateFlow(1f)
+    val nivelSueno = _nivelSueno.asStateFlow()
+
     fun crearMascota(nombre: String) {
-        mascota = Mascota(
+        val tiempoActual = System.currentTimeMillis()
+        _mascota.value = Mascota(
             nom = nombre,
-            ultimaVegadaQueVaMenjar = System.currentTimeMillis(), //Con esto miro cuando ha comido
+            ultimaVegadaQueVaMenjar = tiempoActual,
+            ultimaActualitzacioEnergia = tiempoActual,
+            energiaActual = 1f, // Empieza a tope
+            nivellFelicitat = 100,
+            espectresActius = 0,
+            estaDormint = false,
             estaViva = true
         )
     }
 
-    // Funcion para que coma
     fun darDeComer() {
-        val mActual = mascota //Nos guardamos la mascota
+        val mActual = _mascota.value ?: return
+        // No come si no tiene energía o si ya está durmiendo
+        if (_nivelSueno.value <= 0f || mActual.estaDormint) return
 
-        if (mActual != null) {
-            mascota = Mascota(
-                nom = mActual.nom, //mantenemos todos sus datos
-                ultimaVegadaQueVaMenjar = System.currentTimeMillis(), //Y le indicamos que su tiempo de comida se reinicia
-                estaViva = mActual.estaViva
-            )
+        _mascota.value = mActual.copy(ultimaVegadaQueVaMenjar = System.currentTimeMillis())
 
-            estaComiendo = true
-
-            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                estaComiendo = false
-            }, 2000) //Esto es para la "animacion de comer"
+        viewModelScope.launch {
+            _estaComiendo.value = true
+            delay(2400)
+            _estaComiendo.value = false
         }
     }
 
-    // Funcion para comprobar si ha muerto
-    fun comprobarSiSigueViva(): Boolean {
-        val m = mascota ?: return false
+    // FUNCIÓN CLAVE: Calcula la energía exacta antes de cambiar el estado (Dormir/Despertar)
+    fun toggleDormir() {
+        val m = _mascota.value ?: return
+        val tiempoActual = System.currentTimeMillis()
 
-        val tiempoTranscurrido = System.currentTimeMillis() - m.ultimaVegadaQueVaMenjar //Miramos cuanto ha sido el tiempo que lleva sin comer
+        // 1. Calculamos cuánta energía ha ganado o perdido desde el último "tick"
+        val diffTiempo = tiempoActual - m.ultimaActualitzacioEnergia
+        var energiaCalculada = m.energiaActual
 
-        if (tiempoTranscurrido > TIEMPO_LIMITE) { //Si es mayor (es decir ha pasado el tiempo limite) pues muere
-            mascota = m.copy(estaViva = false) //Y su estado pasa ha muerto
-            return false
+        if (m.estaDormint) {
+            energiaCalculada += diffTiempo.toFloat() / TIEMPO_RECUPERACION_SUENO
+        } else {
+            energiaCalculada -= diffTiempo.toFloat() / TIEMPO_RECUPERACION_SUENO
         }
-        return true
+
+        val nuevoEstado = !m.estaDormint
+
+        // 2. Guardamos la foto fija de la energía en este momento
+        _mascota.value = m.copy(
+            estaDormint = nuevoEstado,
+            energiaActual = energiaCalculada.coerceIn(0f, 1f),
+            ultimaActualitzacioEnergia = tiempoActual
+        )
+
+        controlarMusica(nuevoEstado)
     }
+
+    private fun controlarMusica(reproducir: Boolean) {
+        if (reproducir) {
+            try {
+                mediaPlayer = MediaPlayer.create(getApplication(), R.raw.musica_dormir).apply {
+                    isLooping = true
+                    start()
+                }
+            } catch (e: Exception) { e.printStackTrace() }
+        } else {
+            mediaPlayer?.stop()
+            mediaPlayer?.release()
+            mediaPlayer = null
+        }
+    }
+
+    // Se ejecuta cada 500ms desde la UI
+    fun actualizarEstado() {
+        val m = _mascota.value ?: return
+        if (!m.estaViva) return
+
+        val tiempoActual = System.currentTimeMillis()
+
+        // CÁLCULO DE HAMBRE (Basado en la última comida)
+        val diffHambre = tiempoActual - m.ultimaVegadaQueVaMenjar
+        val nuevoHambre = (1f - (diffHambre.toFloat() / TIEMPO_HAMBRE)).coerceAtLeast(0f)
+
+        // CÁLCULO DE ENERGÍA (Basado en acumulación/delta)
+        val diffEnergia = tiempoActual - m.ultimaActualitzacioEnergia
+        var energiaDelta = diffEnergia.toFloat() / TIEMPO_RECUPERACION_SUENO
+
+        var nuevaEnergia = if (m.estaDormint) {
+            m.energiaActual + energiaDelta // Suma si duerme
+        } else {
+            m.energiaActual - energiaDelta // Resta si está despierto
+        }
+        nuevaEnergia = nuevaEnergia.coerceIn(0f, 1f)
+
+        // Actualizamos el modelo con los nuevos valores
+        val mascotaActualizada = m.copy(
+            energiaActual = nuevaEnergia,
+            ultimaActualitzacioEnergia = tiempoActual
+        )
+
+        if (nuevoHambre <= 0f) {
+            _mascota.value = mascotaActualizada.copy(estaViva = false)
+            controlarMusica(false)
+        } else {
+            _mascota.value = mascotaActualizada
+        }
+
+        // Actualizamos las barras de la pantalla
+        _nivelHambre.value = nuevoHambre
+        _nivelSueno.value = nuevaEnergia
+    }
+
+    fun comprobarSiSigueViva() = _mascota.value?.estaViva == true
 
     fun resetearJuego() {
-        mascota = null //hice una funcion para que si la mascota muere ya no puedas utilizarla (sea null)
+        _mascota.value = null
+        controlarMusica(false)
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        mediaPlayer?.release()
+        mediaPlayer = null
     }
 }

@@ -17,7 +17,7 @@ fun ScreenMascotaMort(
     viewModel: MascotaViewModel,
     onReiniciarJoc: () -> Unit
 ) {
-    val nomMascota = viewModel.mascota?.nom ?: "El teu demoni" //lo tipico de comprobar si es null (puede no tener nombre)
+    val nomMascota = viewModel.mascota.value?.nom?: "El teu demoni" //lo tipico de comprobar si es null (puede no tener nombre)
 
     Column(
         modifier = Modifier
