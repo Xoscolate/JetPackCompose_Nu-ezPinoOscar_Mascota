@@ -1,42 +1,45 @@
 package com.example.jetpackapploginmvvm.view
 
 import androidx.compose.animation.Crossfade
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CutCornerShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.jetpackapploginmvvm.R
 import com.example.jetpackapploginmvvm.viewmodel.MascotaViewModel
 import kotlinx.coroutines.delay
-import androidx.compose.foundation.Image
 
 @Composable
 fun ScreenMascotaJoc(
     viewModel: MascotaViewModel,
     onMascotaMorta: () -> Unit,
     onDormirClick: () -> Unit,
+    onPersonalizarClick: () -> Unit,
     onBackClick: () -> Unit
 ) {
     val mascota by viewModel.mascota.collectAsState()
     val estaComiendo by viewModel.estaComiendo.collectAsState()
 
-    // RECOLECTAMOS LAS BARRAS
     val nivelHambre by viewModel.nivelHambre.collectAsState()
     val nivelSueno by viewModel.nivelSueno.collectAsState()
 
     var frameBase by remember { mutableIntStateOf(0) }
     var frameComiendo by remember { mutableIntStateOf(0) }
 
-    // Animaciones
     LaunchedEffect(Unit) {
         while (true) {
             delay(125)
@@ -54,73 +57,121 @@ fun ScreenMascotaJoc(
         }
     }
 
-    // BUCLE PRINCIPAL DEL JUEGO: Actualiza las barras cada medio segundo
     LaunchedEffect(Unit) {
         while (true) {
             viewModel.actualizarEstado()
             if (mascota?.estaViva == false) {
                 onMascotaMorta()
             }
-            delay(500) // Se actualiza rápido para que las barras se muevan fluido
+            delay(500)
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFF121212)),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Spacer(modifier = Modifier.height(40.dp))
+    val fondoElegidoId = when(mascota?.fondoActual) {
+        0 -> R.drawable.fondo_0
+        1 -> R.drawable.fondo_1
+        2 -> R.drawable.fondo_02
+        3 -> R.drawable.fondo_03
+        4 -> R.drawable.fondo_04
+        5 -> R.drawable.fondo_05
+        else -> R.drawable.fondo_0
+    }
 
-        // 1. NOMBRE DE LA MASCOTA
-        Text(
-            text = mascota?.nom?.uppercase() ?: "DEMONIO",
-            fontSize = 40.sp,
-            fontWeight = FontWeight.ExtraBold,
-            color = Color(0xFFB22222),
-            letterSpacing = 4.sp,
-        )
+    Column(modifier = Modifier.fillMaxSize()) {
 
-        // --- NUEVO: BARRAS DE ESTADO ---
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 32.dp, vertical = 16.dp)
-        ) {
-            // Barra de Hambre
-            Text("VITALITAT (Fám)", color = Color.White, fontSize = 12.sp)
-            LinearProgressIndicator(
-                progress = { nivelHambre },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(12.dp),
-                color = Color(0xFFB22222), // Rojo
-                trackColor = Color.DarkGray
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Barra de Sueño
-            Text("ENERGIA (Son)", color = Color.White, fontSize = 12.sp)
-            LinearProgressIndicator(
-                progress = { nivelSueno },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(12.dp),
-                color = Color(0xFF4B0082), // Morado oscuro (Energía oscura)
-                trackColor = Color.DarkGray
-            )
-        }
-        // -------------------------------
-
-        // 2. EL DEMONIO
+        // --- 1. MITAD SUPERIOR (Fondo, Demonio, Espectros y Textos) ---
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f),
+                .weight(1.5f),
             contentAlignment = Alignment.BottomCenter
         ) {
+            // A. IMAGEN DE FONDO
+            Image(
+                painter = painterResource(id = fondoElegidoId),
+                contentDescription = "Fondo Seleccionado",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+
+            // B. UI SUPERIOR (Nombres y Barras subidas)
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .align(Alignment.TopCenter),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // NOMBRE DE LA MASCOTA
+                Text(
+                    text = mascota?.nom?.uppercase() ?: "DEMONIO",
+                    fontSize = 36.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color(0xFFB22222),
+                    letterSpacing = 4.sp,
+                    modifier = Modifier
+                        .background(Color.Black.copy(alpha = 0.6f))
+                        .padding(horizontal = 12.dp, vertical = 2.dp)
+                )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // INDICADOR DE ESTADO
+                val numEspectros = mascota?.espectresActius ?: 0
+                if (numEspectros > 3) {
+                    Row(
+                        modifier = Modifier
+                            .background(Color.Black.copy(alpha = 0.6f))
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("😢", fontSize = 18.sp)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("TRIST: Fam i Son x2!", color = Color.Red, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                } else {
+                    Row(
+                        modifier = Modifier
+                            .background(Color.Black.copy(alpha = 0.6f))
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("😈", fontSize = 18.sp)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Content", color = Color.Green, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // BARRAS DE ESTADO (Añadido fondo sólido)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp)
+                        .background(Color.Black.copy(alpha = 0.6f), shape = RoundedCornerShape(8.dp))
+                        .padding(12.dp) // Padding interior para que respiren las barras
+                ) {
+                    Text("VITALITAT (Fám)", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    LinearProgressIndicator(
+                        progress = { nivelHambre },
+                        modifier = Modifier.fillMaxWidth().height(10.dp),
+                        color = Color(0xFFB22222), trackColor = Color.DarkGray.copy(alpha = 0.8f)
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Text("ENERGIA (Son)", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    LinearProgressIndicator(
+                        progress = { nivelSueno },
+                        modifier = Modifier.fillMaxWidth().height(10.dp),
+                        color = Color(0xFF4B0082), trackColor = Color.DarkGray.copy(alpha = 0.8f)
+                    )
+                }
+            }
+
+            // C. EL DEMONIO
             Crossfade(targetState = estaComiendo, label = "crossfade_demon") { comiendo ->
                 val imagenId = if (comiendo) {
                     when (frameComiendo) {
@@ -158,67 +209,116 @@ fun ScreenMascotaJoc(
                 Image(
                     painter = painterResource(id = imagenId),
                     contentDescription = "Mascota",
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(350.dp),
+                    // AUMENTADO: de 330.dp a 380.dp para hacerlo más grande
+                    modifier = Modifier.fillMaxWidth().height(380.dp),
                     contentScale = ContentScale.Fit,
                     alignment = Alignment.BottomCenter
                 )
             }
+
+            // D. ESPECTROS
+            val numEspectros = mascota?.espectresActius ?: 0
+            val posiciones = listOf(
+                BiasAlignment(-0.7f, -0.2f), BiasAlignment(0.6f, -0.1f),
+                BiasAlignment(-0.4f, 0.3f), BiasAlignment(0.5f, 0.4f),
+                BiasAlignment(-0.8f, 0.1f), BiasAlignment(0.8f, 0.2f),
+                BiasAlignment(0.1f, -0.3f), BiasAlignment(-0.2f, 0.5f),
+                BiasAlignment(0.7f, 0.5f), BiasAlignment(-0.6f, 0.4f)
+            )
+
+            for (i in 0 until numEspectros) {
+                val pos = posiciones[i % posiciones.size]
+                Image(
+                    painter = painterResource(id = R.drawable.espectro),
+                    contentDescription = "Espectro molesto",
+                    modifier = Modifier
+                        .align(pos)
+                        .size(50.dp)
+                        .clickable { viewModel.eliminarEspectro() }
+                )
+            }
         }
 
-        // 3. LA BARRA BASE ROJA
+        // --- 2. LA BARRA BASE ROJA ---
         HorizontalDivider(
             modifier = Modifier.fillMaxWidth(),
             thickness = 6.dp,
             color = Color(0xFF8B0000)
         )
 
-        // 4. MENÚ DE ACCIONES (2 Botones principales)
+        // --- 3. MENÚ DE ACCIONES INFERIOR (GRILLA 2x2) ---
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(0.8f)
-                .padding(top = 20.dp),
+                .weight(0.7f)
+                .background(Color(0xFF121212))
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Top
+            verticalArrangement = Arrangement.SpaceEvenly
         ) {
-            // Botón Comer
-            Button(
-                onClick = { viewModel.darDeComer() },
-                shape = CutCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B0000)),
-                modifier = Modifier
-                    .height(65.dp)
-                    .fillMaxWidth(0.85f),
-                elevation = ButtonDefaults.buttonElevation(8.dp)
+
+            // PRIMERA FILA DE BOTONES
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text("SACRIFICAR ALIMENT", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Button(
+                    onClick = { viewModel.darDeComer() },
+                    shape = CutCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B0000)),
+                    modifier = Modifier.weight(1f).height(60.dp),
+                    contentPadding = PaddingValues(4.dp)
+                ) {
+                    Text("ALIMENTAR", fontSize = 16.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                }
+
+                Button(
+                    onClick = {
+                        viewModel.toggleDormir()
+                        onDormirClick()
+                    },
+                    shape = CutCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4B0082)),
+                    modifier = Modifier.weight(1f).height(60.dp),
+                    contentPadding = PaddingValues(4.dp)
+                ) {
+                    Text("DESCANSAR", fontSize = 16.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Botón Dormir
-            Button(
-                onClick = {
-                    viewModel.toggleDormir()
-                    onDormirClick()
-                },
-                shape = CutCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4B0082)), // Morado
-                modifier = Modifier
-                    .height(65.dp)
-                    .fillMaxWidth(0.85f),
-                elevation = ButtonDefaults.buttonElevation(8.dp)
+            // SEGUNDA FILA DE BOTONES
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text("DESCANSAR EN LES OMBRES", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Button(
+                    onClick = onPersonalizarClick,
+                    shape = CutCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E8B57)),
+                    modifier = Modifier.weight(1f).height(60.dp),
+                    contentPadding = PaddingValues(4.dp)
+                ) {
+                    Text("FONDS", fontSize = 16.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                }
+
+                // BOTÓN RESERVADO PARA LA NUEVA FUNCIONALIDAD
+                Button(
+                    onClick = { /* De momento no hace nada */ },
+                    shape = CutCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray),
+                    modifier = Modifier.weight(1f).height(60.dp),
+                    contentPadding = PaddingValues(4.dp)
+                ) {
+                    Text("PRÒXIMAMENT", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.LightGray, textAlign = TextAlign.Center)
+                }
             }
 
-            Spacer(modifier = Modifier.weight(1f)) // Empuja el botón de salir hacia abajo
+            Spacer(modifier = Modifier.height(4.dp))
 
+            // BOTÓN DE SALIR
             TextButton(
                 onClick = onBackClick,
-                modifier = Modifier.padding(bottom = 16.dp)
+                modifier = Modifier.padding(bottom = 4.dp)
             ) {
                 Text("ABANDONAR EL REGNE", color = Color.Gray, fontSize = 14.sp)
             }

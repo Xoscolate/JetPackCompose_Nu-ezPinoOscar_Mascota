@@ -20,6 +20,7 @@ import com.example.jetpackapploginmvvm.viewmodel.LoginViewModel
 import com.example.jetpackapploginmvvm.view.ScreenMascotaCrear
 import com.example.jetpackapploginmvvm.view.ScreenMascotaJoc
 import com.example.jetpackapploginmvvm.view.ScreenMascotaMort
+import com.example.jetpackapploginmvvm.view.ScreenPersonalizacion
 import com.example.jetpackapploginmvvm.view.simon.ScreenMascotaDormir
 import com.example.jetpackapploginmvvm.viewmodel.MascotaViewModel
 
@@ -115,7 +116,10 @@ fun AppNavigation(
             ScreenMascotaJoc(
                 viewModel = mascotaViewModel,
                 onMascotaMorta = ::anarAMascotaMort,
-                onDormirClick = { navController.navigate(AppScreens.MascotaDormir.route) }, // <--- CORREGIDO AQUÍ
+                onDormirClick = { navController.navigate(AppScreens.MascotaDormir.route) },
+
+                onPersonalizarClick = { navController.navigate(AppScreens.Personalizacion.route) },
+
                 onBackClick = {
                     navController.popBackStack(AppScreens.Welcome.route, inclusive = false)
                 }
@@ -141,5 +145,12 @@ fun AppNavigation(
                 }
             )
         }
+        composable(route = AppScreens.Personalizacion.route) {
+            ScreenPersonalizacion(
+                viewModel = mascotaViewModel,
+                onBackClick = { navController.popBackStack() } // Vuelve atrás al terminar
+            )
+        }
+
     }
 }
