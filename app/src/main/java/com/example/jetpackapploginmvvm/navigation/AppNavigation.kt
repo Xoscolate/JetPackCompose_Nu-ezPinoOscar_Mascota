@@ -97,12 +97,7 @@ fun AppNavigation(
             )
         }
 
-        composable (route = AppScreens.Simon.route){
-            ScreenSimon(
-                onBackClick = ::tornarEnrere,
-                onCloseClick = onCloseApp
-            )
-        }
+        // ¡ATENCIÓN! Aquí hemos borrado el primer 'composable (route = AppScreens.Simon.route)' que estaba repetido.
 
         composable(route = AppScreens.MascotaCrear.route) {
             ScreenMascotaCrear(
@@ -117,9 +112,11 @@ fun AppNavigation(
                 viewModel = mascotaViewModel,
                 onMascotaMorta = ::anarAMascotaMort,
                 onDormirClick = { navController.navigate(AppScreens.MascotaDormir.route) },
-
                 onPersonalizarClick = { navController.navigate(AppScreens.Personalizacion.route) },
-
+                onSimonClick = {
+                    mascotaViewModel.entrarAlSimon() //
+                    navController.navigate(AppScreens.Simon.route)
+                },
                 onBackClick = {
                     navController.popBackStack(AppScreens.Welcome.route, inclusive = false)
                 }
@@ -145,12 +142,23 @@ fun AppNavigation(
                 }
             )
         }
+
         composable(route = AppScreens.Personalizacion.route) {
             ScreenPersonalizacion(
                 viewModel = mascotaViewModel,
-                onBackClick = { navController.popBackStack() } // Vuelve atrás al terminar
+                onBackClick = { navController.popBackStack() }
             )
         }
 
+        // --- VERSIÓN CORRECTA DEL SIMÓN (Con premio de felicidad) ---
+        composable (route = AppScreens.Simon.route){
+            ScreenSimon(
+                onBackClick = {
+                    mascotaViewModel.salirDelSimon() // <-- Comprueba si ha pasado los 2 minutos
+                    tornarEnrere()
+                },
+                onCloseClick = onCloseApp
+            )
+        }
     }
 }

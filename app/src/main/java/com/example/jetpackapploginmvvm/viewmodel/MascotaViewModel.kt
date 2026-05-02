@@ -13,10 +13,9 @@ import kotlinx.coroutines.launch
 
 class MascotaViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val TIEMPO_HAMBRE = 60 * 1000L // 1 minuto (Ajustar más adelante si es muy rápido)
-    private val TIEMPO_RECUPERACION_SUENO = 10 * 60 * 1000L // 10 minutos
-
-    // --- CAMBIO AQUÍ: Ahora aparece 1 espectro cada 10 segundos ---
+    // --- CAMBIADO: El hambre ahora tarda 10 minutos ---
+    private val TIEMPO_HAMBRE = 10 * 60 * 1000L
+    private val TIEMPO_RECUPERACION_SUENO = 10 * 60 * 1000L
     private val TIEMPO_ESPECTRO = 10 * 1000L
 
     private var mediaPlayer: MediaPlayer? = null
@@ -42,10 +41,38 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
             ultimaActualizacion = t,
             ultimoEspectro = t,
             espectresActius = 0,
-            nivellFelicitat = 100,
+            tempsFiFelicitat = 0L,
             estaDormint = false,
-            estaViva = true
+            estaViva = true,
+            fondoActual = 0
         )
+    }
+
+    // --- NUEVA FUNCIÓN: Se llamará al jugar al Simón ---
+    private var tiempoInicioSimon = 0L
+
+    fun entrarAlSimon() {
+        // Guardamos la hora exacta a la que entra a jugar
+        tiempoInicioSimon = System.currentTimeMillis()
+    }
+
+    fun salirDelSimon() {
+        val m = _mascota.value ?: return
+
+        // Calculamos cuánto tiempo ha pasado desde que entró
+        val tiempoJugado = System.currentTimeMillis() - tiempoInicioSimon
+
+        // Comprobamos si han pasado al menos 2 minutos (2 * 60 * 1000 milisegundos)
+        // Para hacer pruebas rápidas ahora mismo, puedes cambiar el "2" por "0" o por menos tiempo.
+        if (tiempoJugado >= 2 * 60 * 1000L) {
+            // Solo si ha jugado más de 2 minutos, le damos los 5 minutos de felicidad
+            _mascota.value = m.copy(tempsFiFelicitat = System.currentTimeMillis() + (5 * 60 * 1000L))
+        }
+    }
+
+    fun cambiarFondo(nuevoFondo: Int) {
+        val m = _mascota.value ?: return
+        _mascota.value = m.copy(fondoActual = nuevoFondo)
     }
 
     fun darDeComer() {
@@ -87,22 +114,30 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
         val t = System.currentTimeMillis()
         val diffTiempo = t - m.ultimaActualizacion
 
-        val penalizacion = if (m.espectresActius > 3) 2f else 1f
+        // --- LÓGICA DE MULTIPLICADORES ---
+        val esTriste = m.espectresActius > 3
+        val esFeliz = t < m.tempsFiFelicitat // Es feliz si aún no se ha acabado el tiempo
 
-        // --- CALCULO HAMBRE Y SUEÑO ---
-        var nHambre = m.hambreActual - ((diffTiempo.toFloat() / TIEMPO_HAMBRE) * penalizacion)
+        val multiplicador = when {
+            esTriste -> 2f    // La suciedad gana: va el doble de rápido
+            esFeliz -> 0.5f   // Si está feliz, gasta a la MITAD de velocidad
+            else -> 1f        // Neutral
+        }
+
+        // --- CÁLCULO HAMBRE Y SUEÑO ---
+        var nHambre = m.hambreActual - ((diffTiempo.toFloat() / TIEMPO_HAMBRE) * multiplicador)
 
         var nEnergia = m.energiaActual
         if (m.estaDormint) {
             nEnergia += (diffTiempo.toFloat() / TIEMPO_RECUPERACION_SUENO)
         } else {
-            nEnergia -= ((diffTiempo.toFloat() / TIEMPO_RECUPERACION_SUENO) * penalizacion)
+            nEnergia -= ((diffTiempo.toFloat() / TIEMPO_RECUPERACION_SUENO) * multiplicador)
         }
 
         nHambre = nHambre.coerceIn(0f, 1f)
         nEnergia = nEnergia.coerceIn(0f, 1f)
 
-        // --- CALCULO APARICIÓN DE ESPECTROS (Funciona en 2º plano) ---
+        // --- CÁLCULO ESPECTROS ---
         val diffEspectro = t - m.ultimoEspectro
         val nuevosEspectros = (diffEspectro / TIEMPO_ESPECTRO).toInt()
 
@@ -111,11 +146,10 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
 
         if (nuevosEspectros > 0 && totalEspectros < 10) {
             totalEspectros += nuevosEspectros
-            if (totalEspectros > 10) totalEspectros = 10 // LÍMITE MÁXIMO DE 10 ESPECTROS
+            if (totalEspectros > 10) totalEspectros = 10
             nuevoRelojEspectros += nuevosEspectros * TIEMPO_ESPECTRO
         }
 
-        // GUARDAR TODO
         val mascotaActualizada = m.copy(
             hambreActual = nHambre,
             energiaActual = nEnergia,
@@ -124,7 +158,6 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
             espectresActius = totalEspectros
         )
 
-        // Comprobación de muerte
         if (nHambre <= 0f) {
             _mascota.value = mascotaActualizada.copy(estaViva = false)
             controlarMusica(false)
@@ -132,7 +165,6 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
             _mascota.value = mascotaActualizada
         }
 
-        // Actualizar visuales
         _nivelHambre.value = nHambre
         _nivelSueno.value = nEnergia
     }
@@ -160,10 +192,5 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
         super.onCleared()
         mediaPlayer?.release()
         mediaPlayer = null
-    }
-
-    fun cambiarFondo(nuevoFondo: Int) {
-        val m = _mascota.value ?: return
-        _mascota.value = m.copy(fondoActual = nuevoFondo)
     }
 }

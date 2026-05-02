@@ -7,7 +7,7 @@ data class Mascota(
     val ultimaActualizacion: Long = 0L,
     val ultimoEspectro: Long = 0L,
     val espectresActius: Int = 0,
-    val nivellFelicitat: Int = 100,
+    val tempsFiFelicitat: Long = 0L,
     val estaDormint: Boolean = false,
     val estaViva: Boolean = true,
     val fondoActual: Int = 0

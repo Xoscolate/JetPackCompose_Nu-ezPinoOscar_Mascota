@@ -29,6 +29,7 @@ fun ScreenMascotaJoc(
     onMascotaMorta: () -> Unit,
     onDormirClick: () -> Unit,
     onPersonalizarClick: () -> Unit,
+    onSimonClick: () -> Unit, // <--- AQUÍ ESTÁ EL PARÁMETRO QUE FALTABA
     onBackClick: () -> Unit
 ) {
     val mascota by viewModel.mascota.collectAsState()
@@ -117,8 +118,10 @@ fun ScreenMascotaJoc(
 
                 Spacer(modifier = Modifier.height(6.dp))
 
-                // INDICADOR DE ESTADO
+                // --- INDICADOR DE ESTADO (FELIZ, TRISTE O NEUTRAL) ---
                 val numEspectros = mascota?.espectresActius ?: 0
+                val esFelic = System.currentTimeMillis() < (mascota?.tempsFiFelicitat ?: 0L)
+
                 if (numEspectros > 3) {
                     Row(
                         modifier = Modifier
@@ -130,6 +133,18 @@ fun ScreenMascotaJoc(
                         Spacer(modifier = Modifier.width(6.dp))
                         Text("TRIST: Fam i Son x2!", color = Color.Red, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
+                } else if (esFelic) {
+                    // SI ES FELIZ POR JUGAR AL SIMÓN
+                    Row(
+                        modifier = Modifier
+                            .background(Color.Black.copy(alpha = 0.6f))
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("🤩", fontSize = 18.sp)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("CONTENT: Desgast x0.5", color = Color.Green, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
                 } else {
                     Row(
                         modifier = Modifier
@@ -137,21 +152,21 @@ fun ScreenMascotaJoc(
                             .padding(horizontal = 8.dp, vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("😈", fontSize = 18.sp)
+                        Text("😐", fontSize = 18.sp)
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Content", color = Color.Green, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text("Neutral", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // BARRAS DE ESTADO (Añadido fondo sólido)
+                // BARRAS DE ESTADO
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 24.dp)
                         .background(Color.Black.copy(alpha = 0.6f), shape = RoundedCornerShape(8.dp))
-                        .padding(12.dp) // Padding interior para que respiren las barras
+                        .padding(12.dp)
                 ) {
                     Text("VITALITAT (Fám)", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     LinearProgressIndicator(
@@ -209,7 +224,6 @@ fun ScreenMascotaJoc(
                 Image(
                     painter = painterResource(id = imagenId),
                     contentDescription = "Mascota",
-                    // AUMENTADO: de 330.dp a 380.dp para hacerlo más grande
                     modifier = Modifier.fillMaxWidth().height(380.dp),
                     contentScale = ContentScale.Fit,
                     alignment = Alignment.BottomCenter
@@ -301,15 +315,15 @@ fun ScreenMascotaJoc(
                     Text("FONDS", fontSize = 16.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
                 }
 
-                // BOTÓN RESERVADO PARA LA NUEVA FUNCIONALIDAD
+                // --- BOTÓN DEL SIMÓN ---
                 Button(
-                    onClick = { /* De momento no hace nada */ },
+                    onClick = onSimonClick,
                     shape = CutCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD2691E)), // Naranja fuego
                     modifier = Modifier.weight(1f).height(60.dp),
                     contentPadding = PaddingValues(4.dp)
                 ) {
-                    Text("PRÒXIMAMENT", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.LightGray, textAlign = TextAlign.Center)
+                    Text("SIMÓN INFERNAL", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White, textAlign = TextAlign.Center)
                 }
             }
 
