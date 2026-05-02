@@ -29,7 +29,7 @@ fun ScreenMascotaJoc(
     onMascotaMorta: () -> Unit,
     onDormirClick: () -> Unit,
     onPersonalizarClick: () -> Unit,
-    onSimonClick: () -> Unit, // <--- AQUÍ ESTÁ EL PARÁMETRO QUE FALTABA
+    onSimonClick: () -> Unit,
     onBackClick: () -> Unit
 ) {
     val mascota by viewModel.mascota.collectAsState()
@@ -118,8 +118,9 @@ fun ScreenMascotaJoc(
 
                 Spacer(modifier = Modifier.height(6.dp))
 
-                // --- INDICADOR DE ESTADO (FELIZ, TRISTE O NEUTRAL) ---
-                val numEspectros = mascota?.espectresActius ?: 0
+                // --- INDICADOR DE ESTADO (Adaptado a List<Int>) ---
+                val listaEspectros = mascota?.espectresActius ?: emptyList()
+                val numEspectros = listaEspectros.size
                 val esFelic = System.currentTimeMillis() < (mascota?.tempsFiFelicitat ?: 0L)
 
                 if (numEspectros > 3) {
@@ -134,7 +135,6 @@ fun ScreenMascotaJoc(
                         Text("TRIST: Fam i Son x2!", color = Color.Red, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                 } else if (esFelic) {
-                    // SI ES FELIZ POR JUGAR AL SIMÓN
                     Row(
                         modifier = Modifier
                             .background(Color.Black.copy(alpha = 0.6f))
@@ -230,8 +230,8 @@ fun ScreenMascotaJoc(
                 )
             }
 
-            // D. ESPECTROS
-            val numEspectros = mascota?.espectresActius ?: 0
+            // D. ESPECTROS (Dibujado usando los IDs concretos)
+            val listaEspectrosParaDibujar = mascota?.espectresActius ?: emptyList()
             val posiciones = listOf(
                 BiasAlignment(-0.7f, -0.2f), BiasAlignment(0.6f, -0.1f),
                 BiasAlignment(-0.4f, 0.3f), BiasAlignment(0.5f, 0.4f),
@@ -240,15 +240,16 @@ fun ScreenMascotaJoc(
                 BiasAlignment(0.7f, 0.5f), BiasAlignment(-0.6f, 0.4f)
             )
 
-            for (i in 0 until numEspectros) {
-                val pos = posiciones[i % posiciones.size]
+            // Recorremos la lista de activos y ponemos la imagen en su posición
+            listaEspectrosParaDibujar.forEach { posicionId ->
+                val pos = posiciones[posicionId]
                 Image(
                     painter = painterResource(id = R.drawable.espectro),
                     contentDescription = "Espectro molesto",
                     modifier = Modifier
                         .align(pos)
                         .size(50.dp)
-                        .clickable { viewModel.eliminarEspectro() }
+                        .clickable { viewModel.eliminarEspectro(posicionId) } // <-- Pasa la ID exacta
                 )
             }
         }
@@ -319,7 +320,7 @@ fun ScreenMascotaJoc(
                 Button(
                     onClick = onSimonClick,
                     shape = CutCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD2691E)), // Naranja fuego
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD2691E)),
                     modifier = Modifier.weight(1f).height(60.dp),
                     contentPadding = PaddingValues(4.dp)
                 ) {

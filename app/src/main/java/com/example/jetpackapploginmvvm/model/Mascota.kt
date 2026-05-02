@@ -6,7 +6,7 @@ data class Mascota(
     val energiaActual: Float = 1f,
     val ultimaActualizacion: Long = 0L,
     val ultimoEspectro: Long = 0L,
-    val espectresActius: Int = 0,
+    val espectresActius: List<Int> = emptyList(),
     val tempsFiFelicitat: Long = 0L,
     val estaDormint: Boolean = false,
     val estaViva: Boolean = true,

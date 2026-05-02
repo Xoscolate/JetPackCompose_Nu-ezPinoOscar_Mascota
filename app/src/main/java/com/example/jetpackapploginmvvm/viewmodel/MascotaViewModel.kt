@@ -13,7 +13,6 @@ import kotlinx.coroutines.launch
 
 class MascotaViewModel(application: Application) : AndroidViewModel(application) {
 
-    // --- CAMBIADO: El hambre ahora tarda 10 minutos ---
     private val TIEMPO_HAMBRE = 10 * 60 * 1000L
     private val TIEMPO_RECUPERACION_SUENO = 10 * 60 * 1000L
     private val TIEMPO_ESPECTRO = 10 * 1000L
@@ -32,6 +31,20 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
     private val _nivelSueno = MutableStateFlow(1f)
     val nivelSueno = _nivelSueno.asStateFlow()
 
+    private var tiempoInicioSimon = 0L
+
+    fun entrarAlSimon() {
+        tiempoInicioSimon = System.currentTimeMillis()
+    }
+
+    fun salirDelSimon() {
+        val m = _mascota.value ?: return
+        val tiempoJugado = System.currentTimeMillis() - tiempoInicioSimon
+        if (tiempoJugado >= 2 * 60 * 1000L) {
+            _mascota.value = m.copy(tempsFiFelicitat = System.currentTimeMillis() + (5 * 60 * 1000L))
+        }
+    }
+
     fun crearMascota(nombre: String) {
         val t = System.currentTimeMillis()
         _mascota.value = Mascota(
@@ -40,7 +53,7 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
             energiaActual = 1f,
             ultimaActualizacion = t,
             ultimoEspectro = t,
-            espectresActius = 0,
+            espectresActius = emptyList(), // Inicializado como lista vacía
             tempsFiFelicitat = 0L,
             estaDormint = false,
             estaViva = true,
@@ -48,26 +61,9 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
         )
     }
 
-    // --- NUEVA FUNCIÓN: Se llamará al jugar al Simón ---
-    private var tiempoInicioSimon = 0L
-
-    fun entrarAlSimon() {
-        // Guardamos la hora exacta a la que entra a jugar
-        tiempoInicioSimon = System.currentTimeMillis()
-    }
-
-    fun salirDelSimon() {
+    fun jugarSimon() {
         val m = _mascota.value ?: return
-
-        // Calculamos cuánto tiempo ha pasado desde que entró
-        val tiempoJugado = System.currentTimeMillis() - tiempoInicioSimon
-
-        // Comprobamos si han pasado al menos 2 minutos (2 * 60 * 1000 milisegundos)
-        // Para hacer pruebas rápidas ahora mismo, puedes cambiar el "2" por "0" o por menos tiempo.
-        if (tiempoJugado >= 2 * 60 * 1000L) {
-            // Solo si ha jugado más de 2 minutos, le damos los 5 minutos de felicidad
-            _mascota.value = m.copy(tempsFiFelicitat = System.currentTimeMillis() + (5 * 60 * 1000L))
-        }
+        _mascota.value = m.copy(tempsFiFelicitat = System.currentTimeMillis() + (5 * 60 * 1000L))
     }
 
     fun cambiarFondo(nuevoFondo: Int) {
@@ -96,11 +92,11 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
         controlarMusica(!m.estaDormint)
     }
 
-    fun eliminarEspectro() {
+    // --- CAMBIO CLAVE: Elimina exactamente la posición que has tocado ---
+    fun eliminarEspectro(posicionId: Int) {
         val m = _mascota.value ?: return
-        if (m.espectresActius > 0) {
-            _mascota.value = m.copy(espectresActius = m.espectresActius - 1)
-        }
+        val nuevaLista = m.espectresActius.filter { it != posicionId }
+        _mascota.value = m.copy(espectresActius = nuevaLista)
     }
 
     fun actualizarEstado() {
@@ -114,17 +110,15 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
         val t = System.currentTimeMillis()
         val diffTiempo = t - m.ultimaActualizacion
 
-        // --- LÓGICA DE MULTIPLICADORES ---
-        val esTriste = m.espectresActius > 3
-        val esFeliz = t < m.tempsFiFelicitat // Es feliz si aún no se ha acabado el tiempo
+        val esTriste = m.espectresActius.size > 3
+        val esFeliz = t < m.tempsFiFelicitat
 
         val multiplicador = when {
-            esTriste -> 2f    // La suciedad gana: va el doble de rápido
-            esFeliz -> 0.5f   // Si está feliz, gasta a la MITAD de velocidad
-            else -> 1f        // Neutral
+            esTriste -> 2f
+            esFeliz -> 0.5f
+            else -> 1f
         }
 
-        // --- CÁLCULO HAMBRE Y SUEÑO ---
         var nHambre = m.hambreActual - ((diffTiempo.toFloat() / TIEMPO_HAMBRE) * multiplicador)
 
         var nEnergia = m.energiaActual
@@ -137,16 +131,22 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
         nHambre = nHambre.coerceIn(0f, 1f)
         nEnergia = nEnergia.coerceIn(0f, 1f)
 
-        // --- CÁLCULO ESPECTROS ---
+        // --- CÁLCULO DE ESPECTROS ACTUALIZADO ---
         val diffEspectro = t - m.ultimoEspectro
         val nuevosEspectros = (diffEspectro / TIEMPO_ESPECTRO).toInt()
-
-        var totalEspectros = m.espectresActius
+        var nuevaListaEspectros = m.espectresActius.toMutableList()
         var nuevoRelojEspectros = m.ultimoEspectro
 
-        if (nuevosEspectros > 0 && totalEspectros < 10) {
-            totalEspectros += nuevosEspectros
-            if (totalEspectros > 10) totalEspectros = 10
+        if (nuevosEspectros > 0 && nuevaListaEspectros.size < 10) {
+            // Buscamos qué posiciones de la 0 a la 9 están libres
+            val posicionesLibres = (0..9).filter { !nuevaListaEspectros.contains(it) }.toMutableList()
+            posicionesLibres.shuffle() // Mezclamos para que salgan en orden aleatorio
+
+            // Añadimos tantos como toque, sin pasarnos del límite de huecos libres
+            val aAnadir = minOf(nuevosEspectros, posicionesLibres.size)
+            for (i in 0 until aAnadir) {
+                nuevaListaEspectros.add(posicionesLibres[i])
+            }
             nuevoRelojEspectros += nuevosEspectros * TIEMPO_ESPECTRO
         }
 
@@ -155,7 +155,7 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
             energiaActual = nEnergia,
             ultimaActualizacion = t,
             ultimoEspectro = nuevoRelojEspectros,
-            espectresActius = totalEspectros
+            espectresActius = nuevaListaEspectros
         )
 
         if (nHambre <= 0f) {
