@@ -22,6 +22,9 @@ import androidx.compose.ui.unit.sp
 import com.example.jetpackapploginmvvm.R
 import com.example.jetpackapploginmvvm.viewmodel.MascotaViewModel
 import kotlinx.coroutines.delay
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 
 @Composable
 fun ScreenMascotaJoc(
@@ -30,8 +33,19 @@ fun ScreenMascotaJoc(
     onDormirClick: () -> Unit,
     onPersonalizarClick: () -> Unit,
     onSimonClick: () -> Unit,
+
     onBackClick: () -> Unit
+
 ) {
+    val launcherPermiso = rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { isGranted -> /* Aquí podríamos hacer algo si rechaza */ }
+
+    LaunchedEffect(Unit) {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            launcherPermiso.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
     val mascota by viewModel.mascota.collectAsState()
     val estaComiendo by viewModel.estaComiendo.collectAsState()
 

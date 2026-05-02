@@ -8,6 +8,7 @@ data class Mascota(
     val ultimoEspectro: Long = 0L,
     val espectresActius: List<Int> = emptyList(),
     val tempsFiFelicitat: Long = 0L,
+    val notificacioFamEnviada: Boolean = false,
     val estaDormint: Boolean = false,
     val estaViva: Boolean = true,
     val fondoActual: Int = 0

@@ -10,10 +10,15 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.Context
+import android.os.Build
+import androidx.core.app.NotificationCompat
 
 class MascotaViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val TIEMPO_HAMBRE = 10 * 60 * 1000L
+    private val TIEMPO_HAMBRE = 10 * 1000L
     private val TIEMPO_RECUPERACION_SUENO = 10 * 60 * 1000L
     private val TIEMPO_ESPECTRO = 10 * 1000L
 
@@ -53,11 +58,12 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
             energiaActual = 1f,
             ultimaActualizacion = t,
             ultimoEspectro = t,
-            espectresActius = emptyList(), // Inicializado como lista vacía
+            espectresActius = emptyList(),
             tempsFiFelicitat = 0L,
             estaDormint = false,
             estaViva = true,
-            fondoActual = 0
+            fondoActual = 0,
+            notificacioFamEnviada = false // Aseguramos que empiece en false al crear
         )
     }
 
@@ -76,7 +82,8 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
         if (_nivelSueno.value <= 0f || m.estaDormint) return
 
         actualizarCalculos()
-        _mascota.value = _mascota.value?.copy(hambreActual = 1f)
+        // Reseteamos el hambre y volvemos a poner la notificación en false
+        _mascota.value = _mascota.value?.copy(hambreActual = 1f, notificacioFamEnviada = false)
 
         viewModelScope.launch {
             _estaComiendo.value = true
@@ -92,7 +99,6 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
         controlarMusica(!m.estaDormint)
     }
 
-    // --- CAMBIO CLAVE: Elimina exactamente la posición que has tocado ---
     fun eliminarEspectro(posicionId: Int) {
         val m = _mascota.value ?: return
         val nuevaLista = m.espectresActius.filter { it != posicionId }
@@ -131,18 +137,15 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
         nHambre = nHambre.coerceIn(0f, 1f)
         nEnergia = nEnergia.coerceIn(0f, 1f)
 
-        // --- CÁLCULO DE ESPECTROS ACTUALIZADO ---
         val diffEspectro = t - m.ultimoEspectro
         val nuevosEspectros = (diffEspectro / TIEMPO_ESPECTRO).toInt()
         var nuevaListaEspectros = m.espectresActius.toMutableList()
         var nuevoRelojEspectros = m.ultimoEspectro
 
         if (nuevosEspectros > 0 && nuevaListaEspectros.size < 10) {
-            // Buscamos qué posiciones de la 0 a la 9 están libres
             val posicionesLibres = (0..9).filter { !nuevaListaEspectros.contains(it) }.toMutableList()
-            posicionesLibres.shuffle() // Mezclamos para que salgan en orden aleatorio
+            posicionesLibres.shuffle()
 
-            // Añadimos tantos como toque, sin pasarnos del límite de huecos libres
             val aAnadir = minOf(nuevosEspectros, posicionesLibres.size)
             for (i in 0 until aAnadir) {
                 nuevaListaEspectros.add(posicionesLibres[i])
@@ -150,7 +153,7 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
             nuevoRelojEspectros += nuevosEspectros * TIEMPO_ESPECTRO
         }
 
-        val mascotaActualizada = m.copy(
+        var mascotaActualizada = m.copy(
             hambreActual = nHambre,
             energiaActual = nEnergia,
             ultimaActualizacion = t,
@@ -158,7 +161,12 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
             espectresActius = nuevaListaEspectros
         )
 
+        // --- COMPROBACIÓN DE MUERTE Y NOTIFICACIONES ---
         if (nHambre <= 0f) {
+            if (!m.notificacioFamEnviada) {
+                enviarNotificacionFam()
+                mascotaActualizada = mascotaActualizada.copy(notificacioFamEnviada = true)
+            }
             _mascota.value = mascotaActualizada.copy(estaViva = false)
             controlarMusica(false)
         } else {
@@ -167,6 +175,33 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
 
         _nivelHambre.value = nHambre
         _nivelSueno.value = nEnergia
+    }
+
+    private fun enviarNotificacionFam() {
+        val context = getApplication<Application>()
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val channelId = "canal_dimoni_fam"
+
+        // 1. Android 8.0 o superior exige crear un "Canal" de notificaciones
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                channelId,
+                "Avisos de Fam",
+                NotificationManager.IMPORTANCE_HIGH // Aquí sí es IMPORTANCE
+            )
+            notificationManager.createNotificationChannel(channel)
+        }
+
+        // 2. Construir la notificación visual
+        val builder = NotificationCompat.Builder(context, channelId)
+            .setSmallIcon(R.drawable.demonio) // El icono que saldrá en la barra superior
+            .setContentTitle("EL TEU DIMONI ES MOR!")
+            .setContentText("Tinc gana! El meu nivell de vitalitat ha arribat a 0.")
+            .setPriority(NotificationCompat.PRIORITY_HIGH) // <--- ¡AQUÍ ESTABA EL ERROR! Es PRIORITY_HIGH
+            .setAutoCancel(true)
+
+        // 3. Lanzarla al móvil
+        notificationManager.notify(1, builder.build())
     }
 
     fun comprobarSiSigueViva() = _mascota.value?.estaViva == true
