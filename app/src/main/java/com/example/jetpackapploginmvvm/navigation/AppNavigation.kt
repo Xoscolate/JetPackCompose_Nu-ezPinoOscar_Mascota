@@ -109,7 +109,7 @@ fun AppNavigation(
 
         composable(route = AppScreens.MascotaJoc.route) {
             ScreenMascotaJoc(
-                viewModel = mascotaViewModel,
+                viewModel = mascotaViewModel,username = null,
                 onMascotaMorta = ::anarAMascotaMort,
                 onDormirClick = { navController.navigate(AppScreens.MascotaDormir.route) },
                 onPersonalizarClick = { navController.navigate(AppScreens.Personalizacion.route) },

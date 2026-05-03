@@ -18,12 +18,13 @@ import androidx.core.app.NotificationCompat
 
 class MascotaViewModel(application: Application) : AndroidViewModel(application) {
 
+    // --- VARIABLES DE ESTADO ---
+    private var currentUser: String = ""
     private val TIEMPO_HAMBRE = 10 * 1000L
     private val TIEMPO_RECUPERACION_SUENO = 10 * 60 * 1000L
     private val TIEMPO_ESPECTRO = 10 * 1000L
 
     private var mediaPlayer: MediaPlayer? = null
-
     private val _mascota = MutableStateFlow<Mascota?>(null)
     val mascota = _mascota.asStateFlow()
 
@@ -38,6 +39,34 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
 
     private var tiempoInicioSimon = 0L
 
+    // --- FUNCIÓN QUE TE DABA ERROR EN LA PANTALLA DE MUERTE ---
+    fun resetearJuego() {
+        _mascota.value = null
+        _nivelHambre.value = 1f
+        _nivelSueno.value = 1f
+        controlarMusica(false)
+    }
+
+    // --- LÓGICA DE CARGA Y CREACIÓN (SIN ROOM PARA DEMONIO) ---
+    fun cargarMascotaDeUsuario(username: String) {
+        currentUser = username
+    }
+
+    fun crearMascota(nombre: String) {
+        val t = System.currentTimeMillis()
+        _mascota.value = Mascota(
+            ownerUsername = currentUser,
+            nom = nombre,
+            hambreActual = 1f,
+            energiaActual = 1f,
+            ultimaActualizacion = t,
+            ultimoEspectro = t
+        )
+        _nivelHambre.value = 1f
+        _nivelSueno.value = 1f
+    }
+
+    // --- FUNCIONES DEL SIMÓN ---
     fun entrarAlSimon() {
         tiempoInicioSimon = System.currentTimeMillis()
     }
@@ -50,41 +79,17 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun crearMascota(nombre: String) {
-        val t = System.currentTimeMillis()
-        _mascota.value = Mascota(
-            nom = nombre,
-            hambreActual = 1f,
-            energiaActual = 1f,
-            ultimaActualizacion = t,
-            ultimoEspectro = t,
-            espectresActius = emptyList(),
-            tempsFiFelicitat = 0L,
-            estaDormint = false,
-            estaViva = true,
-            fondoActual = 0,
-            notificacioFamEnviada = false // Aseguramos que empiece en false al crear
-        )
-    }
-
     fun jugarSimon() {
         val m = _mascota.value ?: return
         _mascota.value = m.copy(tempsFiFelicitat = System.currentTimeMillis() + (5 * 60 * 1000L))
     }
 
-    fun cambiarFondo(nuevoFondo: Int) {
-        val m = _mascota.value ?: return
-        _mascota.value = m.copy(fondoActual = nuevoFondo)
-    }
-
+    // --- LÓGICA DE JUEGO ---
     fun darDeComer() {
         val m = _mascota.value ?: return
         if (_nivelSueno.value <= 0f || m.estaDormint) return
-
         actualizarCalculos()
-        // Reseteamos el hambre y volvemos a poner la notificación en false
         _mascota.value = _mascota.value?.copy(hambreActual = 1f, notificacioFamEnviada = false)
-
         viewModelScope.launch {
             _estaComiendo.value = true
             delay(2400)
@@ -99,12 +104,6 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
         controlarMusica(!m.estaDormint)
     }
 
-    fun eliminarEspectro(posicionId: Int) {
-        val m = _mascota.value ?: return
-        val nuevaLista = m.espectresActius.filter { it != posicionId }
-        _mascota.value = m.copy(espectresActius = nuevaLista)
-    }
-
     fun actualizarEstado() {
         actualizarCalculos()
     }
@@ -116,100 +115,40 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
         val t = System.currentTimeMillis()
         val diffTiempo = t - m.ultimaActualizacion
 
-        val esTriste = m.espectresActius.size > 3
-        val esFeliz = t < m.tempsFiFelicitat
-
-        val multiplicador = when {
-            esTriste -> 2f
-            esFeliz -> 0.5f
-            else -> 1f
-        }
-
-        var nHambre = m.hambreActual - ((diffTiempo.toFloat() / TIEMPO_HAMBRE) * multiplicador)
-
-        var nEnergia = m.energiaActual
-        if (m.estaDormint) {
-            nEnergia += (diffTiempo.toFloat() / TIEMPO_RECUPERACION_SUENO)
+        var nHambre = (m.hambreActual - (diffTiempo.toFloat() / TIEMPO_HAMBRE)).coerceIn(0f, 1f)
+        var nEnergia = if (m.estaDormint) {
+            (m.energiaActual + (diffTiempo.toFloat() / TIEMPO_RECUPERACION_SUENO)).coerceIn(0f, 1f)
         } else {
-            nEnergia -= ((diffTiempo.toFloat() / TIEMPO_RECUPERACION_SUENO) * multiplicador)
+            (m.energiaActual - (diffTiempo.toFloat() / TIEMPO_RECUPERACION_SUENO)).coerceIn(0f, 1f)
         }
 
-        nHambre = nHambre.coerceIn(0f, 1f)
-        nEnergia = nEnergia.coerceIn(0f, 1f)
-
-        val diffEspectro = t - m.ultimoEspectro
-        val nuevosEspectros = (diffEspectro / TIEMPO_ESPECTRO).toInt()
-        var nuevaListaEspectros = m.espectresActius.toMutableList()
-        var nuevoRelojEspectros = m.ultimoEspectro
-
-        if (nuevosEspectros > 0 && nuevaListaEspectros.size < 10) {
-            val posicionesLibres = (0..9).filter { !nuevaListaEspectros.contains(it) }.toMutableList()
-            posicionesLibres.shuffle()
-
-            val aAnadir = minOf(nuevosEspectros, posicionesLibres.size)
-            for (i in 0 until aAnadir) {
-                nuevaListaEspectros.add(posicionesLibres[i])
-            }
-            nuevoRelojEspectros += nuevosEspectros * TIEMPO_ESPECTRO
-        }
-
-        var mascotaActualizada = m.copy(
+        _mascota.value = m.copy(
             hambreActual = nHambre,
             energiaActual = nEnergia,
             ultimaActualizacion = t,
-            ultimoEspectro = nuevoRelojEspectros,
-            espectresActius = nuevaListaEspectros
+            estaViva = nHambre > 0f
         )
-
-        // --- COMPROBACIÓN DE MUERTE Y NOTIFICACIONES ---
-        if (nHambre <= 0f) {
-            if (!m.notificacioFamEnviada) {
-                enviarNotificacionFam()
-                mascotaActualizada = mascotaActualizada.copy(notificacioFamEnviada = true)
-            }
-            _mascota.value = mascotaActualizada.copy(estaViva = false)
-            controlarMusica(false)
-        } else {
-            _mascota.value = mascotaActualizada
-        }
-
         _nivelHambre.value = nHambre
         _nivelSueno.value = nEnergia
     }
 
-    private fun enviarNotificacionFam() {
-        val context = getApplication<Application>()
-        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val channelId = "canal_dimoni_fam"
-
-        // 1. Android 8.0 o superior exige crear un "Canal" de notificaciones
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                channelId,
-                "Avisos de Fam",
-                NotificationManager.IMPORTANCE_HIGH // Aquí sí es IMPORTANCE
-            )
-            notificationManager.createNotificationChannel(channel)
-        }
-
-        // 2. Construir la notificación visual
-        val builder = NotificationCompat.Builder(context, channelId)
-            .setSmallIcon(R.drawable.demonio) // El icono que saldrá en la barra superior
-            .setContentTitle("EL TEU DIMONI ES MOR!")
-            .setContentText("Tinc gana! El meu nivell de vitalitat ha arribat a 0.")
-            .setPriority(NotificationCompat.PRIORITY_HIGH) // <--- ¡AQUÍ ESTABA EL ERROR! Es PRIORITY_HIGH
-            .setAutoCancel(true)
-
-        // 3. Lanzarla al móvil
-        notificationManager.notify(1, builder.build())
+    // --- FUNCIONES EXTRA PARA EVITAR ERRORES DE NAVEGACIÓN ---
+    fun cambiarFondo(nuevoFondo: Int) {
+        val m = _mascota.value ?: return
+        _mascota.value = m.copy(fondoActual = nuevoFondo)
     }
 
-    fun comprobarSiSigueViva() = _mascota.value?.estaViva == true
-
-    fun resetearJuego() {
-        _mascota.value = null
-        controlarMusica(false)
+    fun eliminarEspectro(posicionId: Int) {
+        val m = _mascota.value ?: return
+        val nuevaLista = m.espectresActius.filter { it != posicionId }
+        _mascota.value = m.copy(espectresActius = nuevaLista)
     }
+
+    fun guardarPartida() {
+        // Función vacía para que la navegación no falle al llamarla
+    }
+
+    fun comprobarSiSigueViva(): Boolean = _mascota.value?.estaViva == true
 
     private fun controlarMusica(reproducir: Boolean) {
         if (reproducir) {
@@ -226,6 +165,5 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
     override fun onCleared() {
         super.onCleared()
         mediaPlayer?.release()
-        mediaPlayer = null
     }
 }

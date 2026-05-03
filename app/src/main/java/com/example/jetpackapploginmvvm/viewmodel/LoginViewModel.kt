@@ -1,9 +1,10 @@
 package com.example.jetpackapploginmvvm.viewmodel
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.jetpackapploginmvvm.model.AppDatabase
 import com.example.jetpackapploginmvvm.model.User
-import com.example.jetpackapploginmvvm.model.UserRepository
 import com.example.jetpackapploginmvvm.navigation.AppScreens
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -11,8 +12,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
-// Estat inicial per la UI de Login.
-// Els tres continguts en blanc.
+// Estat de la UI de Login
 data class LoginUiState(
     val username: String = "",
     val password: String = "",
@@ -21,66 +21,74 @@ data class LoginUiState(
     val isLoading: Boolean = false
 )
 
-// ViewModel és una classe de Kotlin per aplicacions.
-// Aquí estem creant una extensió d'aquesta classe.
-class LoginViewModel : ViewModel() {
-    // El Hashmap de clients, ara l'hem d'importar
+class LoginViewModel(application: Application) : AndroidViewModel(application) {
 
-    // L'estat de l'aplicació és privat, només el viewmodel el pot canviar
-    // Però la vista l'ha de poder veure.
-    // Per assegurar que la vista veu però no canvia, creem _uiState i uiState.
+    // Instanciem el DAO per poder parlar amb Room
+    private val dao = AppDatabase.getDatabase(application).appDao()
+
     private val _uiState = MutableStateFlow(LoginUiState())
-    // Iniciem tot en blanc amb el LoginUiState, però serà mutable.
-    val uiState = _uiState.asStateFlow() // Aquesta, agafará sempre el valor de la privada
+    val uiState = _uiState.asStateFlow()
 
-
-    // Canviar de pantalla és un event, però és únic.
-    // És millor fer servir Channel en aquests casos.
     private val _navigationChannel = Channel<String>()
     val navigationChannel = _navigationChannel.receiveAsFlow()
 
     fun onUsernameChange(input: String) {
-        _uiState.value = _uiState.value.copy(input, message = "", errorMsg = "")
+        _uiState.value = _uiState.value.copy(username = input, message = "", errorMsg = "")
     }
 
     fun onPasswordChange(input: String) {
         _uiState.value = _uiState.value.copy(password = input, message = "", errorMsg = "")
     }
 
-    fun onRegisterClick(){
+    fun onRegisterClick() {
         val current = _uiState.value
-        if(current.username.isNotBlank() && current.password.isNotBlank()){
-            //
-            val isSuccess = UserRepository.addUser(User(current.username, current.password))
+        if (current.username.isNotBlank() && current.password.isNotBlank()) {
+            // Room requereix que les operacions es facin en una corrutina
+            viewModelScope.launch {
+                // Comprovem si l'usuari ja existeix a la base de dades
+                val existingUser = dao.getUser(current.username)
 
-            if(isSuccess) {
-                _uiState.value = current.copy(message = "Usuari registrat correctament !!", username = "", password ="", errorMsg = "")
-            } else {
-                _uiState.value = current.copy(errorMsg = "ERROR: L'usuari ja existeix !!", message = "")
-            }
-        }
-    }
-
-    fun onLoginClick(){
-        val current = _uiState.value
-        // users  passa a ser UserRepository (un singleton)
-        val storedUser = UserRepository.getUser(current.username)
-        if (storedUser == null) {
-            _uiState.value = current.copy(errorMsg = "ERROR: L'usuari no existeix !!", message = "")
-        } else {
-            if( storedUser.password == current.password) {
-                // ARA, per canviar de pantalla he de crear un event (launch)
-                // que envii l'ordre de navegar mitjançant el canal adequat.
-                viewModelScope.launch {
-                    _navigationChannel.send(AppScreens.Welcome.createRoute(current.username))
-                    _uiState.value = LoginUiState() // Netejo camps
+                if (existingUser == null) {
+                    // Si no existeix, el guardem
+                    dao.insertUser(User(current.username, current.password))
+                    _uiState.value = current.copy(
+                        message = "Usuari registrat correctament !!",
+                        username = "",
+                        password = "",
+                        errorMsg = ""
+                    )
+                } else {
+                    _uiState.value = current.copy(
+                        errorMsg = "ERROR: L'usuari ja existeix !!",
+                        message = ""
+                    )
                 }
-            } else {
-                _uiState.value = current.copy(message = "", errorMsg =  "ERROR: Credencials invàlides !!")
             }
         }
     }
 
-    // onCloseClick  ARA no és responsabilitat del ViewModel
-    // Es una acció del Sistema Operatiu i ho gestiona la Vista.
+    fun onLoginClick() {
+        val current = _uiState.value
+        if (current.username.isBlank() || current.password.isBlank()) {
+            _uiState.value = current.copy(errorMsg = "ERROR: Omple tots els camps !!")
+            return
+        }
+
+        viewModelScope.launch {
+            // Busquem l'usuari a Room
+            val storedUser = dao.getUser(current.username)
+
+            if (storedUser == null) {
+                _uiState.value = current.copy(errorMsg = "ERROR: L'usuari no existeix !!", message = "")
+            } else {
+                if (storedUser.password == current.password) {
+                    // Si la contrasenya coincideix, naveguem a la Welcome Screen
+                    _navigationChannel.send(AppScreens.Welcome.createRoute(current.username))
+                    _uiState.value = LoginUiState() // Netegem l'estat
+                } else {
+                    _uiState.value = current.copy(message = "", errorMsg = "ERROR: Credencials invàlides !!")
+                }
+            }
+        }
+    }
 }

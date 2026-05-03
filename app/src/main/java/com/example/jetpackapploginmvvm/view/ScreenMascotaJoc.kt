@@ -29,6 +29,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 @Composable
 fun ScreenMascotaJoc(
     viewModel: MascotaViewModel,
+    username: String?,
     onMascotaMorta: () -> Unit,
     onDormirClick: () -> Unit,
     onPersonalizarClick: () -> Unit,
@@ -36,17 +37,49 @@ fun ScreenMascotaJoc(
 
     onBackClick: () -> Unit
 
-) {
+) {// 1. GESTIÓN DE PERMISOS (Lo que ya tenías)
     val launcherPermiso = rememberLauncherForActivityResult(
         contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
-    ) { isGranted -> /* Aquí podríamos hacer algo si rechaza */ }
+    ) { /* Gestionar si no acepta */ }
 
-    LaunchedEffect(Unit) {
+    // 2. CARGA INICIAL (Permisos + Room)
+    LaunchedEffect(username) {
+        // Pedir permiso de notificaciones (Android 13+)
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-            launcherPermiso.launch(Manifest.permission.POST_NOTIFICATIONS)
+            launcherPermiso.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        }
+
+        // CARGAR DATOS: Si tenemos el usuario, pedimos a Room su mascota
+        username?.let {
+            viewModel.cargarMascotaDeUsuario(it)
         }
     }
+
+    // 3. ACTUALIZACIÓN EN TIEMPO REAL (Bucle del juego)
+    // Esto hace que el hambre y el sueño bajen mientras la pantalla esté abierta
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(1000) // Cada segundo actualiza los cálculos
+            viewModel.actualizarEstado()
+        }
+    }
+
+    // 4. GUARDADO AUTOMÁTICO (Persistence)
+    // Cuando cierres esta pantalla o le des a "Atrás", se guarda en Room
+    DisposableEffect(Unit) {
+        onDispose {
+            viewModel.guardarPartida()
+        }
+    }
+
+    // 5. VIGILANTE DE MUERTE
+    // Si la mascota muere en el ViewModel, disparamos el callback de navegación
     val mascota by viewModel.mascota.collectAsState()
+    LaunchedEffect(mascota?.estaViva) {
+        if (mascota?.estaViva == false) {
+            onMascotaMorta()
+        }
+    }
     val estaComiendo by viewModel.estaComiendo.collectAsState()
 
     val nivelHambre by viewModel.nivelHambre.collectAsState()

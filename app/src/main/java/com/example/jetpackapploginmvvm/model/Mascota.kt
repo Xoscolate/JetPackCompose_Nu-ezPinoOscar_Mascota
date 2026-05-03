@@ -1,6 +1,7 @@
 package com.example.jetpackapploginmvvm.model
 
 data class Mascota(
+    val ownerUsername: String, // Puedes dejarlo por si lo usas en la UI
     val nom: String = "",
     val hambreActual: Float = 1f,
     val energiaActual: Float = 1f,
