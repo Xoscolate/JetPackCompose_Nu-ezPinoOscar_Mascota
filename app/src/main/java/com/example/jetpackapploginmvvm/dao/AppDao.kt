@@ -1,13 +1,14 @@
-package com.example.jetpackapploginmvvm.model
+package com.example.jetpackapploginmvvm.dao
 
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import com.example.jetpackapploginmvvm.model.User
 
 @Dao
 interface AppDao {
-    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    @Insert(onConflict = OnConflictStrategy.Companion.IGNORE)
     suspend fun insertUser(user: User)
 
     @Query("SELECT * FROM users WHERE username = :username LIMIT 1")

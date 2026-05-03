@@ -24,7 +24,6 @@ fun ScreenMascotaDormir(viewModel: MascotaViewModel, onDespertar: () -> Unit) {
     val nivelHambre by viewModel.nivelHambre.collectAsState()
     var frameDormir by remember { mutableIntStateOf(0) }
 
-    // Animación de dormir a 2 FPS en bucle
     LaunchedEffect(Unit) {
         while (true) {
             delay(500)
@@ -32,7 +31,6 @@ fun ScreenMascotaDormir(viewModel: MascotaViewModel, onDespertar: () -> Unit) {
         }
     }
 
-    // Actualización de barras
     LaunchedEffect(Unit) {
         while (true) {
             viewModel.actualizarEstado()
@@ -40,27 +38,24 @@ fun ScreenMascotaDormir(viewModel: MascotaViewModel, onDespertar: () -> Unit) {
         }
     }
 
-    // Usamos Column principal para apilar la parte de arriba (con fondo) y la de abajo (oscura)
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // --- 1. MITAD SUPERIOR (Fondo, Barras y Demonio) ---
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1.2f), // Ocupa un poco más de la mitad, igual que en el juego principal
-            contentAlignment = Alignment.BottomCenter // El demonio se pegará abajo del todo
+                .weight(1.2f),
+            contentAlignment = Alignment.BottomCenter
         ) {
-            // Fondo de la habitación (solo ocupa esta mitad)
             Image(
                 painter = painterResource(id = R.drawable.fondo_dormir),
                 contentDescription = "Fondo",
                 modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop // Recorta para llenar el espacio
+                contentScale = ContentScale.Crop
             )
 
-            // Barras de Estado (Pegadas arriba)
+
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -86,7 +81,6 @@ fun ScreenMascotaDormir(viewModel: MascotaViewModel, onDespertar: () -> Unit) {
                 )
             }
 
-            // Animación del demonio durmiendo (Pegado a la raya)
             val imagenDormir = when(frameDormir) {
                 0 -> R.drawable.fotograma0000
                 1 -> R.drawable.fotograma0001
@@ -101,25 +95,23 @@ fun ScreenMascotaDormir(viewModel: MascotaViewModel, onDespertar: () -> Unit) {
                 contentDescription = "Zzz",
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(350.dp), // Ajustado al mismo tamaño que el demonio despierto
+                    .height(350.dp),
                 contentScale = ContentScale.Fit,
-                alignment = Alignment.BottomCenter // Garantiza que toque la línea
+                alignment = Alignment.BottomCenter
             )
         }
 
-        // --- 2. LA LÍNEA DIVISORIA ("SUELO") ---
         HorizontalDivider(
             modifier = Modifier.fillMaxWidth(),
             thickness = 6.dp,
-            color = Color(0xFF4B0082) // La he puesto morada por la temática del sueño, cámbiala a 0xFF8B0000 si la quieres roja
+            color = Color(0xFF4B0082)
         )
 
-        // --- 3. MITAD INFERIOR (Fondo liso y botón) ---
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
-                .background(Color(0xFF121212)) // Fondo negro/gris oscuro
+                .background(Color(0xFF121212))
                 .padding(top = 40.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Top

@@ -24,7 +24,6 @@ import com.example.jetpackapploginmvvm.view.ScreenPersonalizacion
 import com.example.jetpackapploginmvvm.view.simon.ScreenMascotaDormir
 import com.example.jetpackapploginmvvm.viewmodel.MascotaViewModel
 
-// FUNCIONS AUXILIARS FIRA DE LA UI
 
 fun setInclusiveTrue(builder: PopUpToBuilder) {
     builder.inclusive = true
@@ -97,7 +96,6 @@ fun AppNavigation(
             )
         }
 
-        // ¡ATENCIÓN! Aquí hemos borrado el primer 'composable (route = AppScreens.Simon.route)' que estaba repetido.
 
         composable(route = AppScreens.MascotaCrear.route) {
             ScreenMascotaCrear(
@@ -150,7 +148,6 @@ fun AppNavigation(
             )
         }
 
-        // --- VERSIÓN CORRECTA DEL SIMÓN (Con premio de felicidad) ---
         composable (route = AppScreens.Simon.route){
             ScreenSimon(
                 onBackClick = {

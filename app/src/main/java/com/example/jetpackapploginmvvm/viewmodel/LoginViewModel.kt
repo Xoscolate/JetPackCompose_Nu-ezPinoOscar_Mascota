@@ -3,7 +3,7 @@ package com.example.jetpackapploginmvvm.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.jetpackapploginmvvm.model.AppDatabase
+import com.example.jetpackapploginmvvm.dao.AppDatabase
 import com.example.jetpackapploginmvvm.model.User
 import com.example.jetpackapploginmvvm.navigation.AppScreens
 import kotlinx.coroutines.channels.Channel

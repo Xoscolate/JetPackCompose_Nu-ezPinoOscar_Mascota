@@ -15,7 +15,6 @@ sealed class AppScreens (val route: String ){
         // }   // son expressions equivalents.
     }
 
-    // Afegim la pantalla del Simon
     data object Simon : AppScreens( "simon_screen")
     // Aquesta pantalla no canvia cap dada, per tant no té paràmetres.
 

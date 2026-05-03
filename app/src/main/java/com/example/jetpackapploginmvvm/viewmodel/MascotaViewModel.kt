@@ -10,15 +10,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.content.Context
-import android.os.Build
-import androidx.core.app.NotificationCompat
+
 
 class MascotaViewModel(application: Application) : AndroidViewModel(application) {
 
-    // --- VARIABLES DE ESTADO ---
     private var currentUser: String = ""
     private val TIEMPO_HAMBRE = 10 * 1000L
     private val TIEMPO_RECUPERACION_SUENO = 10 * 60 * 1000L
@@ -39,7 +34,6 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
 
     private var tiempoInicioSimon = 0L
 
-    // --- FUNCIÓN QUE TE DABA ERROR EN LA PANTALLA DE MUERTE ---
     fun resetearJuego() {
         _mascota.value = null
         _nivelHambre.value = 1f
@@ -47,7 +41,6 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
         controlarMusica(false)
     }
 
-    // --- LÓGICA DE CARGA Y CREACIÓN (SIN ROOM PARA DEMONIO) ---
     fun cargarMascotaDeUsuario(username: String) {
         currentUser = username
     }
@@ -66,7 +59,6 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
         _nivelSueno.value = 1f
     }
 
-    // --- FUNCIONES DEL SIMÓN ---
     fun entrarAlSimon() {
         tiempoInicioSimon = System.currentTimeMillis()
     }
@@ -84,7 +76,6 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
         _mascota.value = m.copy(tempsFiFelicitat = System.currentTimeMillis() + (5 * 60 * 1000L))
     }
 
-    // --- LÓGICA DE JUEGO ---
     fun darDeComer() {
         val m = _mascota.value ?: return
         if (_nivelSueno.value <= 0f || m.estaDormint) return
@@ -132,7 +123,6 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
         _nivelSueno.value = nEnergia
     }
 
-    // --- FUNCIONES EXTRA PARA EVITAR ERRORES DE NAVEGACIÓN ---
     fun cambiarFondo(nuevoFondo: Int) {
         val m = _mascota.value ?: return
         _mascota.value = m.copy(fondoActual = nuevoFondo)
@@ -145,7 +135,6 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun guardarPartida() {
-        // Función vacía para que la navegación no falle al llamarla
     }
 
     fun comprobarSiSigueViva(): Boolean = _mascota.value?.estaViva == true

@@ -1,6 +1,5 @@
 package com.example.jetpackapploginmvvm.view
 
-import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -34,46 +33,43 @@ fun ScreenMascotaJoc(
     onDormirClick: () -> Unit,
     onPersonalizarClick: () -> Unit,
     onSimonClick: () -> Unit,
-
     onBackClick: () -> Unit
-
-) {// 1. GESTIÓN DE PERMISOS (Lo que ya tenías)
+) {
+    // Gestion permisos
     val launcherPermiso = rememberLauncherForActivityResult(
         contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
-    ) { /* Gestionar si no acepta */ }
+    ) {  }
 
-    // 2. CARGA INICIAL (Permisos + Room)
+    // 2. carga inicial
     LaunchedEffect(username) {
-        // Pedir permiso de notificaciones (Android 13+)
+        // Esto lo utilizo para pedirle permisos al usuario
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
             launcherPermiso.launch(android.Manifest.permission.POST_NOTIFICATIONS)
         }
 
-        // CARGAR DATOS: Si tenemos el usuario, pedimos a Room su mascota
+        // cargar datos
         username?.let {
             viewModel.cargarMascotaDeUsuario(it)
         }
     }
 
-    // 3. ACTUALIZACIÓN EN TIEMPO REAL (Bucle del juego)
-    // Esto hace que el hambre y el sueño bajen mientras la pantalla esté abierta
+    // Esto es para que el sueño y el hambre bajen mientras este abierta la pantalla y actualize
     LaunchedEffect(Unit) {
         while (true) {
-            delay(1000) // Cada segundo actualiza los cálculos
+            delay(1000) // esto es que carga cada segundo
             viewModel.actualizarEstado()
         }
     }
 
-    // 4. GUARDADO AUTOMÁTICO (Persistence)
-    // Cuando cierres esta pantalla o le des a "Atrás", se guarda en Room
+    //El guardado si cierras la app
     DisposableEffect(Unit) {
         onDispose {
             viewModel.guardarPartida()
         }
     }
 
-    // 5. VIGILANTE DE MUERTE
-    // Si la mascota muere en el ViewModel, disparamos el callback de navegación
+    // Esto comprueba si el boolean de la mascota esta viva es false (es decir si esta muerti)
+    //si es asi te enfia a la pantalla de game over
     val mascota by viewModel.mascota.collectAsState()
     LaunchedEffect(mascota?.estaViva) {
         if (mascota?.estaViva == false) {
@@ -100,7 +96,7 @@ fun ScreenMascotaJoc(
             frameComiendo = 0
             for (i in 0..18) {
                 frameComiendo = i
-                delay(125)
+                delay(125) //Este delay corresponde a 8 frames en animacion
             }
         }
     }
@@ -115,7 +111,7 @@ fun ScreenMascotaJoc(
         }
     }
 
-    val fondoElegidoId = when(mascota?.fondoActual) {
+    val fondoElegidoId = when(mascota?.fondoActual) { //Esto es el id de los fondos para que lo identique dentro de su modelo y asi lo muestre
         0 -> R.drawable.fondo_0
         1 -> R.drawable.fondo_1
         2 -> R.drawable.fondo_02
@@ -127,14 +123,13 @@ fun ScreenMascotaJoc(
 
     Column(modifier = Modifier.fillMaxSize()) {
 
-        // --- 1. MITAD SUPERIOR (Fondo, Demonio, Espectros y Textos) ---
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1.5f),
             contentAlignment = Alignment.BottomCenter
         ) {
-            // A. IMAGEN DE FONDO
+            //Este es el fondo
             Image(
                 painter = painterResource(id = fondoElegidoId),
                 contentDescription = "Fondo Seleccionado",
@@ -142,7 +137,6 @@ fun ScreenMascotaJoc(
                 contentScale = ContentScale.Crop
             )
 
-            // B. UI SUPERIOR (Nombres y Barras subidas)
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -151,7 +145,6 @@ fun ScreenMascotaJoc(
             ) {
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // NOMBRE DE LA MASCOTA
                 Text(
                     text = mascota?.nom?.uppercase() ?: "DEMONIO",
                     fontSize = 36.sp,
@@ -165,12 +158,12 @@ fun ScreenMascotaJoc(
 
                 Spacer(modifier = Modifier.height(6.dp))
 
-                // --- INDICADOR DE ESTADO (Adaptado a List<Int>) ---
-                val listaEspectros = mascota?.espectresActius ?: emptyList()
-                val numEspectros = listaEspectros.size
+                //Esto es la mecnica de la felicidad de la mascota
+                val listaEspectros = mascota?.espectresActius ?: emptyList() //La lista vacia de espectros que se ira llenando
+                val numEspectros = listaEspectros.size //esto es para mirar cuantos espectros hay porque luego compararemos si hay mas de 3
                 val esFelic = System.currentTimeMillis() < (mascota?.tempsFiFelicitat ?: 0L)
 
-                if (numEspectros > 3) {
+                if (numEspectros > 3) { //Si hay mas de 3 espectros en pantalla el demonio esta triste
                     Row(
                         modifier = Modifier
                             .background(Color.Black.copy(alpha = 0.6f))
@@ -181,7 +174,7 @@ fun ScreenMascotaJoc(
                         Spacer(modifier = Modifier.width(6.dp))
                         Text("TRIST: Fam i Son x2!", color = Color.Red, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
-                } else if (esFelic) {
+                } else if (esFelic) { //Si esta feliz (esto es cuando ha jugado al simon dice 2 min o mas)
                     Row(
                         modifier = Modifier
                             .background(Color.Black.copy(alpha = 0.6f))
@@ -193,7 +186,7 @@ fun ScreenMascotaJoc(
                         Text("CONTENT: Desgast x0.5", color = Color.Green, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                 } else {
-                    Row(
+                    Row( //estado normal
                         modifier = Modifier
                             .background(Color.Black.copy(alpha = 0.6f))
                             .padding(horizontal = 8.dp, vertical = 4.dp),
@@ -207,7 +200,6 @@ fun ScreenMascotaJoc(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // BARRAS DE ESTADO
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -215,7 +207,7 @@ fun ScreenMascotaJoc(
                         .background(Color.Black.copy(alpha = 0.6f), shape = RoundedCornerShape(8.dp))
                         .padding(12.dp)
                 ) {
-                    Text("VITALITAT (Fám)", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text("VITALITAT (HAMBRE)", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     LinearProgressIndicator(
                         progress = { nivelHambre },
                         modifier = Modifier.fillMaxWidth().height(10.dp),
@@ -224,7 +216,7 @@ fun ScreenMascotaJoc(
 
                     Spacer(modifier = Modifier.height(6.dp))
 
-                    Text("ENERGIA (Son)", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text("ENERGIA (SUEÑO)", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     LinearProgressIndicator(
                         progress = { nivelSueno },
                         modifier = Modifier.fillMaxWidth().height(10.dp),
@@ -233,51 +225,49 @@ fun ScreenMascotaJoc(
                 }
             }
 
-            // C. EL DEMONIO
-            Crossfade(targetState = estaComiendo, label = "crossfade_demon") { comiendo ->
-                val imagenId = if (comiendo) {
-                    when (frameComiendo) {
-                        0 -> R.drawable.fotograma_demonio_comiendo0000
-                        1 -> R.drawable.fotograma_demonio_comiendo0001
-                        2 -> R.drawable.fotograma_demonio_comiendo0002
-                        3 -> R.drawable.fotograma_demonio_comiendo0003
-                        4 -> R.drawable.fotograma_demonio_comiendo0004
-                        5 -> R.drawable.fotograma_demonio_comiendo0005
-                        6 -> R.drawable.fotograma_demonio_comiendo0006
-                        7 -> R.drawable.fotograma_demonio_comiendo0007
-                        8 -> R.drawable.fotograma_demonio_comiendo0008
-                        9 -> R.drawable.fotograma_demonio_comiendo0009
-                        10 -> R.drawable.fotograma_demonio_comiendo0010
-                        11 -> R.drawable.fotograma_demonio_comiendo0011
-                        12 -> R.drawable.fotograma_demonio_comiendo0012
-                        13 -> R.drawable.fotograma_demonio_comiendo0013
-                        14 -> R.drawable.fotograma_demonio_comiendo0014
-                        15 -> R.drawable.fotograma_demonio_comiendo0015
-                        16 -> R.drawable.fotograma_demonio_comiendo0016
-                        17 -> R.drawable.fotograma_demonio_comiendo0017
-                        18 -> R.drawable.fotograma_demonio_comiendo0018
-                        else -> R.drawable.fotograma_demonio_comiendo0018
-                    }
-                } else {
-                    when (frameBase) {
-                        0 -> R.drawable.fotograma_demonio_base0000
-                        1 -> R.drawable.fotograma_demonio_base0001
-                        2 -> R.drawable.fotograma_demonio_base0002
-                        3 -> R.drawable.fotograma_demonio_base0003
-                        else -> R.drawable.fotograma_demonio_base0000
-                    }
+            // Imagen del demonio (Se ha quitado el Crossfade)
+            val imagenId = if (estaComiendo) {
+                when (frameComiendo) {
+                    0 -> R.drawable.fotograma_demonio_comiendo0000
+                    1 -> R.drawable.fotograma_demonio_comiendo0001
+                    2 -> R.drawable.fotograma_demonio_comiendo0002
+                    3 -> R.drawable.fotograma_demonio_comiendo0003
+                    4 -> R.drawable.fotograma_demonio_comiendo0004
+                    5 -> R.drawable.fotograma_demonio_comiendo0005
+                    6 -> R.drawable.fotograma_demonio_comiendo0006
+                    7 -> R.drawable.fotograma_demonio_comiendo0007
+                    8 -> R.drawable.fotograma_demonio_comiendo0008
+                    9 -> R.drawable.fotograma_demonio_comiendo0009
+                    10 -> R.drawable.fotograma_demonio_comiendo0010
+                    11 -> R.drawable.fotograma_demonio_comiendo0011
+                    12 -> R.drawable.fotograma_demonio_comiendo0012
+                    13 -> R.drawable.fotograma_demonio_comiendo0013
+                    14 -> R.drawable.fotograma_demonio_comiendo0014
+                    15 -> R.drawable.fotograma_demonio_comiendo0015
+                    16 -> R.drawable.fotograma_demonio_comiendo0016
+                    17 -> R.drawable.fotograma_demonio_comiendo0017
+                    18 -> R.drawable.fotograma_demonio_comiendo0018
+                    else -> R.drawable.fotograma_demonio_comiendo0018
                 }
-
-                Image(
-                    painter = painterResource(id = imagenId),
-                    contentDescription = "Mascota",
-                    modifier = Modifier.fillMaxWidth().height(380.dp),
-                    contentScale = ContentScale.Fit,
-                    alignment = Alignment.BottomCenter
-                )
+            } else {
+                when (frameBase) {
+                    0 -> R.drawable.fotograma_demonio_base0000
+                    1 -> R.drawable.fotograma_demonio_base0001
+                    2 -> R.drawable.fotograma_demonio_base0002
+                    3 -> R.drawable.fotograma_demonio_base0003
+                    else -> R.drawable.fotograma_demonio_base0000
+                }
             }
 
-            // D. ESPECTROS (Dibujado usando los IDs concretos)
+            Image(
+                painter = painterResource(id = imagenId),
+                contentDescription = "Mascota",
+                modifier = Modifier.fillMaxWidth().height(380.dp),
+                contentScale = ContentScale.Fit,
+                alignment = Alignment.BottomCenter
+            )
+
+            // espectros
             val listaEspectrosParaDibujar = mascota?.espectresActius ?: emptyList()
             val posiciones = listOf(
                 BiasAlignment(-0.7f, -0.2f), BiasAlignment(0.6f, -0.1f),
@@ -287,7 +277,6 @@ fun ScreenMascotaJoc(
                 BiasAlignment(0.7f, 0.5f), BiasAlignment(-0.6f, 0.4f)
             )
 
-            // Recorremos la lista de activos y ponemos la imagen en su posición
             listaEspectrosParaDibujar.forEach { posicionId ->
                 val pos = posiciones[posicionId]
                 Image(
@@ -296,19 +285,17 @@ fun ScreenMascotaJoc(
                     modifier = Modifier
                         .align(pos)
                         .size(50.dp)
-                        .clickable { viewModel.eliminarEspectro(posicionId) } // <-- Pasa la ID exacta
+                        .clickable { viewModel.eliminarEspectro(posicionId) }
                 )
             }
         }
 
-        // --- 2. LA BARRA BASE ROJA ---
         HorizontalDivider(
             modifier = Modifier.fillMaxWidth(),
             thickness = 6.dp,
             color = Color(0xFF8B0000)
         )
 
-        // --- 3. MENÚ DE ACCIONES INFERIOR (GRILLA 2x2) ---
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -318,8 +305,6 @@ fun ScreenMascotaJoc(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceEvenly
         ) {
-
-            // PRIMERA FILA DE BOTONES
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -348,7 +333,6 @@ fun ScreenMascotaJoc(
                 }
             }
 
-            // SEGUNDA FILA DE BOTONES
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -363,7 +347,6 @@ fun ScreenMascotaJoc(
                     Text("FONDS", fontSize = 16.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
                 }
 
-                // --- BOTÓN DEL SIMÓN ---
                 Button(
                     onClick = onSimonClick,
                     shape = CutCornerShape(10.dp),
@@ -377,7 +360,6 @@ fun ScreenMascotaJoc(
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            // BOTÓN DE SALIR
             TextButton(
                 onClick = onBackClick,
                 modifier = Modifier.padding(bottom = 4.dp)
