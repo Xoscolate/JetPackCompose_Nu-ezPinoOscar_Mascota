@@ -12,9 +12,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import com.example.jetpackapploginmvvm.dao.AppDatabase
 
 class MascotaViewModel(application: Application) : AndroidViewModel(application) {
-
+    private val appDao = AppDatabase.getDatabase(application).appDao()
     // --- VARIABLES DE ESTADO ---
     private var currentUser: String = ""
     private val TIEMPO_HAMBRE = 5 * 60 * 1000L
@@ -63,22 +64,27 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
 
     fun cargarMascotaDeUsuario(username: String) {
         currentUser = username
-        // 🔥 Aseguramos silencio absoluto al entrar o cambiar de usuario
-        controlarMusica(false)
+        viewModelScope.launch {
+            val mDB = appDao.getMascota(username)
+            if (mDB != null) {
+                _mascota.value = mDB
+                actualizarCalculos()
+            }
+        }
     }
     fun crearMascota(nombre: String) {
         val t = System.currentTimeMillis()
-        _mascota.value = Mascota(
+        val nueva = Mascota(
             ownerUsername = currentUser,
             nom = nombre,
             fechaCreacion = t,
             hambreActual = 1f,
             energiaActual = 1f,
             ultimaActualizacion = t,
-            ultimoEspectro = t
+            estaViva = true
         )
-        _nivelHambre.value = 1f
-        _nivelSueno.value = 1f
+        _mascota.value = nueva
+        guardarPartida() // Guardamos la mascota virgen en la DB
     }
 
     // --- FUNCIONES DEL SIMÓN ---
@@ -206,7 +212,12 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
         _mascota.value = m.copy(espectresActius = nuevaLista)
     }
 
-    fun guardarPartida() { }
+    fun guardarPartida() {
+        val m = _mascota.value ?: return
+        viewModelScope.launch {
+            appDao.insertMascota(m.copy(ultimaActualizacion = System.currentTimeMillis()))
+        }
+    }
 
     private fun controlarMusica(reproducir: Boolean) {
         if (reproducir) {
