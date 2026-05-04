@@ -1,5 +1,6 @@
 package com.example.jetpackapploginmvvm.view.simon
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -18,8 +19,16 @@ import com.example.jetpackapploginmvvm.R
 import com.example.jetpackapploginmvvm.viewmodel.MascotaViewModel
 import kotlinx.coroutines.delay
 
+
 @Composable
 fun ScreenMascotaDormir(viewModel: MascotaViewModel, onDespertar: () -> Unit) {
+    BackHandler {
+        if (viewModel.mascota.value?.estaDormint == true) {
+            viewModel.toggleDormir()
+        }
+        onDespertar()
+    }
+
     val nivelSueno by viewModel.nivelSueno.collectAsState()
     val nivelHambre by viewModel.nivelHambre.collectAsState()
     var frameDormir by remember { mutableIntStateOf(0) }

@@ -63,10 +63,9 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
 
     fun cargarMascotaDeUsuario(username: String) {
         currentUser = username
-        // 🔥 SIEMPRE que cargamos el usuario (al entrar a la screen), matamos cualquier música previa
+        // 🔥 Aseguramos silencio absoluto al entrar o cambiar de usuario
         controlarMusica(false)
     }
-
     fun crearMascota(nombre: String) {
         val t = System.currentTimeMillis()
         _mascota.value = Mascota(
@@ -219,7 +218,7 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
                 }
             } catch (e: Exception) { e.printStackTrace() }
         } else {
-            // 🔥 Limpieza profunda del MediaPlayer para asegurar silencio
+            // 🔥 Limpieza profunda para asegurar que se detiene
             try {
                 mediaPlayer?.let {
                     if (it.isPlaying) it.stop()
