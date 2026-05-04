@@ -82,7 +82,6 @@ fun AppNavigation(
         ){ backStackEntry ->
             val username = backStackEntry.arguments?.getString("username") ?: "Desconegut"
 
-            // 🔥 1. Escuchamos el estado de la mascota de forma segura para Compose
             val mascotaState by mascotaViewModel.mascota.collectAsState()
 
             LaunchedEffect(username) {
@@ -114,7 +113,6 @@ fun AppNavigation(
         }
 
         composable(route = AppScreens.MascotaJoc.route) {
-            // 🔥 Escuchamos el estado de la mascota de forma correcta
             val mascotaState by mascotaViewModel.mascota.collectAsState()
             val username = mascotaState?.ownerUsername
 

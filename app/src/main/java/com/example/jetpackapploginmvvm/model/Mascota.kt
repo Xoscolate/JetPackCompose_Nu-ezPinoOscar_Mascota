@@ -12,16 +12,16 @@ data class Mascota(
     val hambreActual: Float = 1f,
     val energiaActual: Float = 1f,
     val ultimaActualizacion: Long = 0L,
-    val ultimoEspectro: Long = 0L,           // Recuperado para que no pete
-    val tempsFiFelicitat: Long = 0L,         // Recuperado para que no pete
-    val notificacioFamEnviada: Boolean = false, // Recuperado para que no pete
+    val ultimoEspectro: Long = 0L,
+    val tempsFiFelicitat: Long = 0L,
+    val notificacioFamEnviada: Boolean = false,
     val estaDormint: Boolean = false,
     val estaViva: Boolean = true,
     val fondoActual: Int = 0,
 
     @Ignore val espectresActius: List<Int> = emptyList() // Ignorado por la Base de Datos
 ) {
-    // Constructor secundario obligatorio para que Room ignore la lista
+    // Constructor secundario obligatorio para que Room ignore la lista, lo hago para que ignore la lista de espectros que daba problemas
     constructor(
         ownerUsername: String, nom: String, fechaCreacion: Long, hambreActual: Float,
         energiaActual: Float, ultimaActualizacion: Long, ultimoEspectro: Long,

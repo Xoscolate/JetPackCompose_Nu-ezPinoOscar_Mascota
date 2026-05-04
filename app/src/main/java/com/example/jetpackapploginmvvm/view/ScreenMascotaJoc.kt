@@ -50,7 +50,6 @@ fun ScreenMascotaJoc(
     onSimonClick: () -> Unit,
     onBackClick: () -> Unit
 ) {
-    // 🔥 CONTROL DE LA FLECHA FÍSICA (Si el usuario le da atrás en el móvil)
     BackHandler {
         viewModel.pausarJuego(true) // Paramos música y pausamos antes de salir
         onBackClick() // Ejecutamos la salida
@@ -71,7 +70,6 @@ fun ScreenMascotaJoc(
         // cargar datos
         username?.let {
             viewModel.cargarMascotaDeUsuario(it)
-            // 🔥 SIEMPRE que entramos, forzamos parada de música y quitamos pausa
             viewModel.pausarJuego(true)
             viewModel.pausarJuego(false)
         }
@@ -461,7 +459,6 @@ fun ScreenMascotaJoc(
 
                 TextButton(
                     onClick = {
-                        // 🔥 Forzamos apagado de música antes de volver al menú
                         viewModel.pausarJuego(true)
                         onBackClick()
                     },

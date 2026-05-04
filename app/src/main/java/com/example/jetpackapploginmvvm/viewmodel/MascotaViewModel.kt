@@ -103,15 +103,14 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
     fun darDeComer() {
         val mOriginal = _mascota.value ?: return
 
-        // 1. Si duerme, lo despertamos y paramos música
+//Duerme si paramos la musica
         if (mOriginal.estaDormint) {
             despertarYPararMusica()
         }
 
-        // 2. ¡IMPORTANTE!: Volvemos a pedir el valor para tener la mascota despertada
         val m = _mascota.value ?: return
 
-        // Ahora m.estaDormint ya es false, así que el 'if' no nos echará
+        // si es false nos hecha
         if (_nivelSueno.value <= 0f || m.estaDormint) return
 
         soundPool.play(soundIdComer, 1f, 1f, 0, 0, 1f)
@@ -120,7 +119,7 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
         _mascota.value = _mascota.value?.copy(hambreActual = 1f, estaDormint = false)
         _nivelHambre.value = 1f
 
-        guardarPartida() // Asegúrate de llamar a tu función de guardado aquí
+        guardarPartida()
 
         viewModelScope.launch {
             _estaComiendo.value = true
@@ -138,12 +137,10 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
 
     fun pausarJuego(pausar: Boolean) {
         _juegoPausado.value = pausar
-        // 🔥 Si pausamos (salir con flecha, minimizar, etc.), SILENCIO TOTAL
         if (pausar) {
             controlarMusica(false)
         }
-        // ❌ He quitado el bloque 'else' que re-encendía la música solo
-        // así la música solo suena cuando tú le das a DORMIR explícitamente.
+
     }
 
     fun toggleDormir() {
