@@ -169,6 +169,7 @@ fun ScreenMascotaJoc(
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_PAUSE) {
                 viewModel.pausarJuego(true) // Apaga música si minimizas la App
+                viewModel.guardarPartida()
             }
             if (event == Lifecycle.Event.ON_RESUME) {
                 viewModel.pausarJuego(false) // Quita el cartel al volver

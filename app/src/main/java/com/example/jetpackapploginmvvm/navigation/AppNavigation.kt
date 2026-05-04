@@ -82,12 +82,20 @@ fun AppNavigation(
         ){ backStackEntry ->
             val username = backStackEntry.arguments?.getString("username") ?: "Desconegut"
 
+            // 🔥 1. Escuchamos el estado de la mascota de forma segura para Compose
+            val mascotaState by mascotaViewModel.mascota.collectAsState()
+
+            LaunchedEffect(username) {
+                mascotaViewModel.cargarMascotaDeUsuario(username)
+            }
+
             ScreenWelcome(
                 msgWelcome = "Hola, $username",
                 onLogoutClick = ::ferLogout,
                 onCloseClick = onCloseApp,
                 onStartGame = {
-                    if (mascotaViewModel.mascota.value?.estaViva == true) {
+                    // 🔥 2. Usamos mascotaState en lugar de mascota.value
+                    if (mascotaState?.estaViva == true) {
                         anarAlJocMascota()
                     } else {
                         anarACrearMascota()
@@ -106,13 +114,18 @@ fun AppNavigation(
         }
 
         composable(route = AppScreens.MascotaJoc.route) {
+            // 🔥 Escuchamos el estado de la mascota de forma correcta
+            val mascotaState by mascotaViewModel.mascota.collectAsState()
+            val username = mascotaState?.ownerUsername
+
             ScreenMascotaJoc(
-                viewModel = mascotaViewModel,username = null,
+                viewModel = mascotaViewModel,
+                username = username,
                 onMascotaMorta = ::anarAMascotaMort,
                 onDormirClick = { navController.navigate(AppScreens.MascotaDormir.route) },
                 onPersonalizarClick = { navController.navigate(AppScreens.Personalizacion.route) },
                 onSimonClick = {
-                    mascotaViewModel.entrarAlSimon() //
+                    mascotaViewModel.entrarAlSimon()
                     navController.navigate(AppScreens.Simon.route)
                 },
                 onBackClick = {
@@ -120,7 +133,6 @@ fun AppNavigation(
                 }
             )
         }
-
         composable(route = AppScreens.MascotaMort.route) {
             ScreenMascotaMort(
                 viewModel = mascotaViewModel,
