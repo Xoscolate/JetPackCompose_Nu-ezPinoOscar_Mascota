@@ -13,6 +13,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import com.example.jetpackapploginmvvm.dao.AppDatabase
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class MascotaViewModel(application: Application) : AndroidViewModel(application) {
     private val appDao = AppDatabase.getDatabase(application).appDao()
@@ -22,6 +24,8 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
     private val TIEMPO_RECUPERACION_SUENO = 10 * 60 * 1000L
     private val TIEMPO_ESPECTRO = 5 * 1000L
     private var mediaPlayer: MediaPlayer? = null
+    private val _mensajeOraculo = MutableStateFlow("")
+    val mensajeOraculo = _mensajeOraculo.asStateFlow()
 
     // Configuración de SoundPool para efectos cortos
     private val soundPool: SoundPool = SoundPool.Builder()
@@ -247,6 +251,24 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
         val m = _mascota.value ?: return
         if (m.espectresActius.isNotEmpty()) {
             _mascota.value = m.copy(espectresActius = emptyList())
+        }
+    }
+
+    fun consultarOraculo() {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                // Llamamos a la API
+                val respuesta = com.example.jetpackapploginmvvm.model.RetrofitClient.apiService.obtenerOraculo()
+
+                withContext(Dispatchers.Main) {
+                    _mensajeOraculo.value = "📜 CONSELL DIABÒLIC:\n${respuesta.fact}"
+                }
+            } catch (e: Exception) {
+                // SI FALLA (EJ: MODO AVIÓN), SALTA AQUÍ AUTOMÁTICAMENTE
+                withContext(Dispatchers.Main) {
+                    _mensajeOraculo.value = "⚠️ ERROR DE CONNEXIÓ!\nEl servidor no respòn (Mode avió actiu?)."
+                }
+            }
         }
     }
 }

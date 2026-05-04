@@ -89,11 +89,11 @@ fun AppNavigation(
             }
 
             ScreenWelcome(
+                viewModel = mascotaViewModel,
                 msgWelcome = "Hola, $username",
                 onLogoutClick = ::ferLogout,
                 onCloseClick = onCloseApp,
                 onStartGame = {
-                    // 🔥 2. Usamos mascotaState en lugar de mascota.value
                     if (mascotaState?.estaViva == true) {
                         anarAlJocMascota()
                     } else {
