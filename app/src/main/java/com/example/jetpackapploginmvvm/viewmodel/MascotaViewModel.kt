@@ -230,7 +230,6 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
                 }
             } catch (e: Exception) { e.printStackTrace() }
         } else {
-            // 🔥 Limpieza profunda para asegurar que se detiene
             try {
                 mediaPlayer?.let {
                     if (it.isPlaying) it.stop()
