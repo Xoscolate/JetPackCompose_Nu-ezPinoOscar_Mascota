@@ -3,6 +3,7 @@ package com.example.jetpackapploginmvvm.model
 data class Mascota(
     val ownerUsername: String, // Nombre de usuario del dueño
     val nom: String = "",
+    val fechaCreacion: Long = 0L,
     val hambreActual: Float = 1f,
     val energiaActual: Float = 1f,
     val ultimaActualizacion: Long = 0L,

@@ -54,18 +54,6 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
 
     private var tiempoInicioSimon = 0L
 
-    fun pausarJuego(pausar: Boolean) {
-        _juegoPausado.value = pausar
-        if (pausar) {
-            controlarMusica(false) // Paramos música al salir
-        } else {
-            // Si al volver estaba durmiendo, reanudamos música
-            if (_mascota.value?.estaDormint == true) {
-                controlarMusica(true)
-            }
-        }
-    }
-
     fun resetearJuego() {
         _mascota.value = null
         _nivelHambre.value = 1f
@@ -75,6 +63,8 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
 
     fun cargarMascotaDeUsuario(username: String) {
         currentUser = username
+        // 🔥 SIEMPRE que cargamos el usuario (al entrar a la screen), matamos cualquier música previa
+        controlarMusica(false)
     }
 
     fun crearMascota(nombre: String) {
@@ -82,6 +72,7 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
         _mascota.value = Mascota(
             ownerUsername = currentUser,
             nom = nombre,
+            fechaCreacion = t,
             hambreActual = 1f,
             energiaActual = 1f,
             ultimaActualizacion = t,
@@ -103,29 +94,51 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
             _mascota.value = m.copy(tempsFiFelicitat = System.currentTimeMillis() + (5 * 60 * 1000L))
         }
     }
+
+    fun darDeComer() {
+        val mOriginal = _mascota.value ?: return
+
+        // 1. Si duerme, lo despertamos y paramos música
+        if (mOriginal.estaDormint) {
+            despertarYPararMusica()
+        }
+
+        // 2. ¡IMPORTANTE!: Volvemos a pedir el valor para tener la mascota despertada
+        val m = _mascota.value ?: return
+
+        // Ahora m.estaDormint ya es false, así que el 'if' no nos echará
+        if (_nivelSueno.value <= 0f || m.estaDormint) return
+
+        soundPool.play(soundIdComer, 1f, 1f, 0, 0, 1f)
+        actualizarCalculos()
+
+        _mascota.value = _mascota.value?.copy(hambreActual = 1f, estaDormint = false)
+        _nivelHambre.value = 1f
+
+        guardarPartida() // Asegúrate de llamar a tu función de guardado aquí
+
+        viewModelScope.launch {
+            _estaComiendo.value = true
+            delay(2400)
+            _estaComiendo.value = false
+        }
+    }
+
+    // Esta función es la que limpia el MediaPlayer
     private fun despertarYPararMusica() {
         val m = _mascota.value ?: return
         _mascota.value = m.copy(estaDormint = false)
         controlarMusica(false)
     }
 
-    fun darDeComer() {
-        val m = _mascota.value ?: return
-        if (m.estaDormint) {
-            despertarYPararMusica()
+    fun pausarJuego(pausar: Boolean) {
+        _juegoPausado.value = pausar
+        // 🔥 Si pausamos (salir con flecha, minimizar, etc.), SILENCIO TOTAL
+        if (pausar) {
+            controlarMusica(false)
         }
-        if (_nivelSueno.value <= 0f || m.estaDormint) return
-
-        // Reproducimos el efecto de sonido de comer (FX)
-        soundPool.play(soundIdComer, 1f, 1f, 0, 0, 1f)
-
-        actualizarCalculos()
-        _mascota.value = _mascota.value?.copy(hambreActual = 1f, notificacioFamEnviada = false)
-        viewModelScope.launch {
-            _estaComiendo.value = true
-            delay(2400)
-            _estaComiendo.value = false
-        }
+        // ❌ He quitado el bloque 'else' que re-encendía la música solo
+        // así la música solo suena cuando tú le das a DORMIR explícitamente.
     }
 
     fun toggleDormir() {
@@ -149,7 +162,6 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
 
         val t = System.currentTimeMillis()
         val diffTiempo = t - m.ultimaActualizacion
-
 
         val esFelic = t < (m.tempsFiFelicitat ?: 0L)
         val factorDesgaste = if (esFelic) 0.5f else 1.0f
@@ -183,6 +195,7 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
         _nivelHambre.value = nHambre
         _nivelSueno.value = nEnergia
     }
+
     fun cambiarFondo(nuevoFondo: Int) {
         val m = _mascota.value ?: return
         _mascota.value = m.copy(fondoActual = nuevoFondo)
@@ -206,20 +219,26 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
                 }
             } catch (e: Exception) { e.printStackTrace() }
         } else {
-            mediaPlayer?.stop(); mediaPlayer?.release(); mediaPlayer = null
+            // 🔥 Limpieza profunda del MediaPlayer para asegurar silencio
+            try {
+                mediaPlayer?.let {
+                    if (it.isPlaying) it.stop()
+                    it.release()
+                }
+            } catch (e: Exception) { e.printStackTrace() }
+            mediaPlayer = null
         }
     }
 
     override fun onCleared() {
         super.onCleared()
         mediaPlayer?.release()
-        soundPool.release() // Liberamos el SoundPool al cerrar
+        soundPool.release()
     }
 
     fun sacudirLimpiarEspectros() {
         val m = _mascota.value ?: return
         if (m.espectresActius.isNotEmpty()) {
-            // Limpiamos todos los espectros de golpe al sacudir
             _mascota.value = m.copy(espectresActius = emptyList())
         }
     }

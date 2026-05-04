@@ -30,6 +30,7 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import androidx.activity.compose.BackHandler // 🔥 AÑADIDO PARA LA FLECHA DEL MÓVIL
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.Lifecycle
@@ -49,6 +50,12 @@ fun ScreenMascotaJoc(
     onSimonClick: () -> Unit,
     onBackClick: () -> Unit
 ) {
+    // 🔥 CONTROL DE LA FLECHA FÍSICA (Si el usuario le da atrás en el móvil)
+    BackHandler {
+        viewModel.pausarJuego(true) // Paramos música y pausamos antes de salir
+        onBackClick() // Ejecutamos la salida
+    }
+
     // Gestion permisos
     val launcherPermiso = rememberLauncherForActivityResult(
         contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
@@ -64,18 +71,34 @@ fun ScreenMascotaJoc(
         // cargar datos
         username?.let {
             viewModel.cargarMascotaDeUsuario(it)
+            // 🔥 SIEMPRE que entramos, forzamos parada de música y quitamos pausa
+            viewModel.pausarJuego(true)
+            viewModel.pausarJuego(false)
         }
     }
 
     // Cronòmetre de la partida (temps en segons)
+    val mascota by viewModel.mascota.collectAsState()
     var segonsPartida by remember { mutableIntStateOf(0) }
 
-    // Esto es para que el sueño y el hambre bajen mientras este abierta la pantalla y actualize
+    // 2. Cronómetro Inmortal (Timestamp)
+    LaunchedEffect(mascota?.fechaCreacion, mascota?.estaViva) {
+        while (mascota?.estaViva == true) {
+            val ahora = System.currentTimeMillis()
+            val inicio = mascota?.fechaCreacion ?: ahora
+            segonsPartida = ((ahora - inicio) / 1000).toInt()
+            delay(1000)
+        }
+    }
+
+    // 3. Actualización de constantes (Hambre/Sueño) y Muerte (UNIFICADO)
     LaunchedEffect(Unit) {
         while (true) {
-            delay(1000) // esto es que carga cada segundo
-            viewModel.actualizarEstado()
-            segonsPartida++ // Incrementem el cronòmetre cada segon
+            viewModel.actualizarEstado() // Esto solo resta vida si NO está pausado
+            if (mascota?.estaViva == false && mascota != null) {
+                onMascotaMorta()
+            }
+            delay(1000)
         }
     }
 
@@ -86,14 +109,6 @@ fun ScreenMascotaJoc(
         }
     }
 
-    // Esto comprueba si el boolean de la mascota esta viva es false (es decir si esta muerti)
-    //si es asi te enfia a la pantalla de game over
-    val mascota by viewModel.mascota.collectAsState()
-    LaunchedEffect(mascota?.estaViva) {
-        if (mascota?.estaViva == false) {
-            onMascotaMorta()
-        }
-    }
     val estaComiendo by viewModel.estaComiendo.collectAsState()
 
     val nivelHambre by viewModel.nivelHambre.collectAsState()
@@ -153,7 +168,10 @@ fun ScreenMascotaJoc(
         val activity = context as? ComponentActivity
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_PAUSE) {
-                viewModel.pausarJuego(true)
+                viewModel.pausarJuego(true) // Apaga música si minimizas la App
+            }
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.pausarJuego(false) // Quita el cartel al volver
             }
         }
         activity?.lifecycle?.addObserver(observer)
@@ -176,16 +194,6 @@ fun ScreenMascotaJoc(
                 frameComiendo = i
                 delay(125) //Este delay corresponde a 8 frames en animacion
             }
-        }
-    }
-
-    LaunchedEffect(Unit) {
-        while (true) {
-            viewModel.actualizarEstado()
-            if (mascota?.estaViva == false) {
-                onMascotaMorta()
-            }
-            delay(500)
         }
     }
 
@@ -315,7 +323,7 @@ fun ScreenMascotaJoc(
                     }
                 }
 
-                // Imagen del demonio (Se ha quitado el Crossfade)
+                // Imagen del demonio
                 val imagenId = if (estaComiendo) {
                     when (frameComiendo) {
                         0 -> R.drawable.fotograma_demonio_comiendo0000
@@ -451,7 +459,11 @@ fun ScreenMascotaJoc(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 TextButton(
-                    onClick = onBackClick,
+                    onClick = {
+                        // 🔥 Forzamos apagado de música antes de volver al menú
+                        viewModel.pausarJuego(true)
+                        onBackClick()
+                    },
                     modifier = Modifier.padding(bottom = 4.dp)
                 ) {
                     Text("ABANDONAR EL REGNE", color = Color.Gray, fontSize = 14.sp)
@@ -459,8 +471,7 @@ fun ScreenMascotaJoc(
             }
         }
 
-        // Overlay de pausa (ahora fuera del Column pero dentro del Box)
-        // Bloquea clics accidentales
+        // Overlay de pausa
         if (juegoPausado) {
             Box(
                 modifier = Modifier
