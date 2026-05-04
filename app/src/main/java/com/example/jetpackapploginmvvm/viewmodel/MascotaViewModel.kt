@@ -17,13 +17,12 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
 
     // --- VARIABLES DE ESTADO ---
     private var currentUser: String = ""
-    private val TIEMPO_HAMBRE = 24 * 60 * 60 * 1000L
-    private val TIEMPO_RECUPERACION_SUENO = 8 * 60 * 60 * 1000L
-    private val TIEMPO_ESPECTRO = 2 * 60 * 60 * 1000L
-
+    private val TIEMPO_HAMBRE = 5 * 60 * 1000L
+    private val TIEMPO_RECUPERACION_SUENO = 10 * 60 * 1000L
+    private val TIEMPO_ESPECTRO = 5 * 1000L
     private var mediaPlayer: MediaPlayer? = null
 
-    // Configuración de SoundPool para efectos cortos (FX)
+    // Configuración de SoundPool para efectos cortos
     private val soundPool: SoundPool = SoundPool.Builder()
         .setMaxStreams(5)
         .setAudioAttributes(
@@ -104,9 +103,17 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
             _mascota.value = m.copy(tempsFiFelicitat = System.currentTimeMillis() + (5 * 60 * 1000L))
         }
     }
+    private fun despertarYPararMusica() {
+        val m = _mascota.value ?: return
+        _mascota.value = m.copy(estaDormint = false)
+        controlarMusica(false)
+    }
 
     fun darDeComer() {
         val m = _mascota.value ?: return
+        if (m.estaDormint) {
+            despertarYPararMusica()
+        }
         if (_nivelSueno.value <= 0f || m.estaDormint) return
 
         // Reproducimos el efecto de sonido de comer (FX)
