@@ -1,7 +1,9 @@
 package com.example.jetpackapploginmvvm.viewmodel
 
 import android.app.Application
+import android.media.AudioAttributes
 import android.media.MediaPlayer
+import android.media.SoundPool
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.jetpackapploginmvvm.R
@@ -11,15 +13,30 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-
 class MascotaViewModel(application: Application) : AndroidViewModel(application) {
 
+    // --- VARIABLES DE ESTADO ---
     private var currentUser: String = ""
-    private val TIEMPO_HAMBRE = 10 * 1000L
-    private val TIEMPO_RECUPERACION_SUENO = 10 * 60 * 1000L
-    private val TIEMPO_ESPECTRO = 10 * 1000L
+    private val TIEMPO_HAMBRE = 24 * 60 * 60 * 1000L
+    private val TIEMPO_RECUPERACION_SUENO = 8 * 60 * 60 * 1000L
+    private val TIEMPO_ESPECTRO = 2 * 60 * 60 * 1000L
 
     private var mediaPlayer: MediaPlayer? = null
+
+    // Configuración de SoundPool para efectos cortos (FX)
+    private val soundPool: SoundPool = SoundPool.Builder()
+        .setMaxStreams(5)
+        .setAudioAttributes(
+            AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_GAME)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build()
+        )
+        .build()
+
+    // Cargamos el ID del sonido de comer
+    private val soundIdComer: Int = soundPool.load(application, R.raw.sonido_comer, 1)
+
     private val _mascota = MutableStateFlow<Mascota?>(null)
     val mascota = _mascota.asStateFlow()
 
@@ -32,7 +49,23 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
     private val _nivelSueno = MutableStateFlow(1f)
     val nivelSueno = _nivelSueno.asStateFlow()
 
+    // Estado para la pausa del ciclo de vida
+    private val _juegoPausado = MutableStateFlow(false)
+    val juegoPausado = _juegoPausado.asStateFlow()
+
     private var tiempoInicioSimon = 0L
+
+    fun pausarJuego(pausar: Boolean) {
+        _juegoPausado.value = pausar
+        if (pausar) {
+            controlarMusica(false) // Paramos música al salir
+        } else {
+            // Si al volver estaba durmiendo, reanudamos música
+            if (_mascota.value?.estaDormint == true) {
+                controlarMusica(true)
+            }
+        }
+    }
 
     fun resetearJuego() {
         _mascota.value = null
@@ -59,6 +92,7 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
         _nivelSueno.value = 1f
     }
 
+    // --- FUNCIONES DEL SIMÓN ---
     fun entrarAlSimon() {
         tiempoInicioSimon = System.currentTimeMillis()
     }
@@ -71,14 +105,13 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun jugarSimon() {
-        val m = _mascota.value ?: return
-        _mascota.value = m.copy(tempsFiFelicitat = System.currentTimeMillis() + (5 * 60 * 1000L))
-    }
-
     fun darDeComer() {
         val m = _mascota.value ?: return
         if (_nivelSueno.value <= 0f || m.estaDormint) return
+
+        // Reproducimos el efecto de sonido de comer (FX)
+        soundPool.play(soundIdComer, 1f, 1f, 0, 0, 1f)
+
         actualizarCalculos()
         _mascota.value = _mascota.value?.copy(hambreActual = 1f, notificacioFamEnviada = false)
         viewModelScope.launch {
@@ -91,12 +124,16 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
     fun toggleDormir() {
         actualizarCalculos()
         val m = _mascota.value ?: return
-        _mascota.value = m.copy(estaDormint = !m.estaDormint)
-        controlarMusica(!m.estaDormint)
+        val nuevoEstadoDormir = !m.estaDormint
+        _mascota.value = m.copy(estaDormint = nuevoEstadoDormir)
+        controlarMusica(nuevoEstadoDormir)
     }
 
     fun actualizarEstado() {
-        actualizarCalculos()
+        // Solo actualizamos si el juego NO está pausado por el ciclo de vida
+        if (!_juegoPausado.value) {
+            actualizarCalculos()
+        }
     }
 
     private fun actualizarCalculos() {
@@ -106,23 +143,39 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
         val t = System.currentTimeMillis()
         val diffTiempo = t - m.ultimaActualizacion
 
-        var nHambre = (m.hambreActual - (diffTiempo.toFloat() / TIEMPO_HAMBRE)).coerceIn(0f, 1f)
+
+        val esFelic = t < (m.tempsFiFelicitat ?: 0L)
+        val factorDesgaste = if (esFelic) 0.5f else 1.0f
+
+        var nHambre = (m.hambreActual - (diffTiempo.toFloat() / TIEMPO_HAMBRE * factorDesgaste)).coerceIn(0f, 1f)
         var nEnergia = if (m.estaDormint) {
             (m.energiaActual + (diffTiempo.toFloat() / TIEMPO_RECUPERACION_SUENO)).coerceIn(0f, 1f)
         } else {
-            (m.energiaActual - (diffTiempo.toFloat() / TIEMPO_RECUPERACION_SUENO)).coerceIn(0f, 1f)
+            (m.energiaActual - (diffTiempo.toFloat() / TIEMPO_RECUPERACION_SUENO * factorDesgaste)).coerceIn(0f, 1f)
+        }
+
+        val nuevaListaEspectros = m.espectresActius.toMutableList()
+        var nuevoTiempoEspectro = m.ultimoEspectro
+
+        if (t - m.ultimoEspectro >= TIEMPO_ESPECTRO) {
+            val nuevaPos = (0..9).random()
+            if (!nuevaListaEspectros.contains(nuevaPos)) {
+                nuevaListaEspectros.add(nuevaPos)
+            }
+            nuevoTiempoEspectro = t
         }
 
         _mascota.value = m.copy(
             hambreActual = nHambre,
             energiaActual = nEnergia,
             ultimaActualizacion = t,
+            ultimoEspectro = nuevoTiempoEspectro,
+            espectresActius = nuevaListaEspectros,
             estaViva = nHambre > 0f
         )
         _nivelHambre.value = nHambre
         _nivelSueno.value = nEnergia
     }
-
     fun cambiarFondo(nuevoFondo: Int) {
         val m = _mascota.value ?: return
         _mascota.value = m.copy(fondoActual = nuevoFondo)
@@ -134,16 +187,15 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
         _mascota.value = m.copy(espectresActius = nuevaLista)
     }
 
-    fun guardarPartida() {
-    }
-
-    fun comprobarSiSigueViva(): Boolean = _mascota.value?.estaViva == true
+    fun guardarPartida() { }
 
     private fun controlarMusica(reproducir: Boolean) {
         if (reproducir) {
             try {
-                mediaPlayer = MediaPlayer.create(getApplication(), R.raw.musica_dormir).apply {
-                    isLooping = true; start()
+                if (mediaPlayer == null) {
+                    mediaPlayer = MediaPlayer.create(getApplication(), R.raw.musica_dormir).apply {
+                        isLooping = true; start()
+                    }
                 }
             } catch (e: Exception) { e.printStackTrace() }
         } else {
@@ -154,5 +206,14 @@ class MascotaViewModel(application: Application) : AndroidViewModel(application)
     override fun onCleared() {
         super.onCleared()
         mediaPlayer?.release()
+        soundPool.release() // Liberamos el SoundPool al cerrar
+    }
+
+    fun sacudirLimpiarEspectros() {
+        val m = _mascota.value ?: return
+        if (m.espectresActius.isNotEmpty()) {
+            // Limpiamos todos los espectros de golpe al sacudir
+            _mascota.value = m.copy(espectresActius = emptyList())
+        }
     }
 }
